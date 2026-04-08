@@ -31,8 +31,18 @@ The project is structured into three main components:
 python -m pip install -r requirements.txt
 ```
 
-### 2. Process Data & Train Model
-*Requires the raw CSVs in the `Dataset/` folder.*
+### 2. Dataset Management
+Due to GitHub's file size restrictions, the massive NYC Taxi dataset (>7GB) is not included in this repository.
+Instead, we provide an automated script to download the necessary data directly from the official [NYC TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) website.
+
+To download the dataset automatically:
+```bash
+python download_data.py
+```
+This will fetch the files with a progress bar and place them securely in the `Dataset/` directory (which is git-ignored).
+
+### 3. Process Data & Train Model
+*Requires the raw data in the `Dataset/` folder.*
 ```bash
 # Processes the CSVs in 100k-row chunks, cleaning and feature-engineering
 python data/preprocess.py
@@ -41,14 +51,14 @@ python data/preprocess.py
 python model/train.py
 ```
 
-### 3. Start the Backend API
+### 4. Start the Backend API
 In terminal 1:
 ```bash
 uvicorn api.main:app --reload
 ```
 *API will run on `http://localhost:8000` with Swagger Docs at `http://localhost:8000/docs`.*
 
-### 4. Start the Dashboard UI
+### 5. Start the Dashboard UI
 In terminal 2:
 ```bash
 streamlit run dashboard/app.py

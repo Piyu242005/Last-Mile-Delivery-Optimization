@@ -13,6 +13,7 @@ venv.bak/
 
 # Dataset and large files
 Dataset/
+data/raw/
 data/*.csv
 data/*.xlsx
 data/*.parquet
