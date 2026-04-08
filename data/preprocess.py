@@ -110,33 +110,57 @@ def process_chunk(chunk: pd.DataFrame) -> pd.DataFrame:
 
 # ── Main processing loop ──────────────────────────────────────────────────────
 def run(sample_only: bool = False):
-    csv_files = sorted(glob.glob(str(DATA_DIR / "yellow_tripdata_*.csv")))
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV files found in {DATA_DIR}")
+    # Support both CSV and Parquet files
+    data_files = sorted(glob.glob(str(DATA_DIR / "yellow_tripdata_*.[cp][as][rv]*")))
+    if not data_files:
+        raise FileNotFoundError(f"No data files found in {DATA_DIR}")
 
-    print(f"Found {len(csv_files)} CSV file(s). Processing in chunks of {CHUNKSIZE:,}…")
+    print(f"Found {len(data_files)} file(s). Processing…")
 
     frames = []
     total_raw = 0
     total_clean = 0
 
-    for csv_path in csv_files:
-        fname = os.path.basename(csv_path)
+    for file_path in data_files:
+        fname = os.path.basename(file_path)
         print(f"\n  → {fname}")
-        for i, chunk in enumerate(pd.read_csv(csv_path, chunksize=CHUNKSIZE, low_memory=False)):
-            total_raw += len(chunk)
-            processed = process_chunk(chunk)
-            total_clean += len(processed)
-            frames.append(processed)
-            rows_so_far = sum(len(f) for f in frames)
-            print(f"     chunk {i+1:3d} | raw {len(chunk):>7,} | clean {len(processed):>7,} "
-                  f"| cumulative clean {rows_so_far:>9,}", end="\r")
-            if rows_so_far >= SAMPLE_ROWS:
-                break
+        
+        is_parquet = file_path.endswith(".parquet")
+        
+        if is_parquet:
+            # Parquet files are typically smaller/filtered, handle as whole or chunks
+            # For this demo, we read whole then process
+            try:
+                df_raw = pd.read_parquet(file_path)
+                total_raw += len(df_raw)
+                processed = process_chunk(df_raw)
+                total_clean += len(processed)
+                frames.append(processed)
+                print(f"     parquet | raw {len(df_raw):>7,} | clean {len(processed):>7,}")
+            except Exception as e:
+                print(f"     Error reading parquet: {e}")
+                continue
+        else:
+            # CSV processing in chunks
+            for i, chunk in enumerate(pd.read_csv(file_path, chunksize=CHUNKSIZE, low_memory=False)):
+                total_raw += len(chunk)
+                processed = process_chunk(chunk)
+                total_clean += len(processed)
+                frames.append(processed)
+                rows_so_far = sum(len(f) for f in frames)
+                print(f"     chunk {i+1:3d} | raw {len(chunk):>7,} | clean {len(processed):>7,} "
+                      f"| cumulative clean {rows_so_far:>9,}", end="\r")
+                if rows_so_far >= SAMPLE_ROWS:
+                    break
+                    
         if sum(len(f) for f in frames) >= SAMPLE_ROWS:
             break
         if sample_only:
             break
+
+    if not frames:
+        print("\n[ERROR] No valid data processed. Check file contents or coordinate filters.")
+        return
 
     df = pd.concat(frames, ignore_index=True).head(SAMPLE_ROWS)
     print(f"\n\nProcessing complete → {len(df):,} clean rows (from {total_raw:,} raw rows scanned)")
