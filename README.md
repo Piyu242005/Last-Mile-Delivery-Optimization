@@ -1,7 +1,7 @@
 <!-- HEADER -->
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=timeGradient&height=200&section=header&text=Last%20Mile%20Delivery%20Optimization&fontSize=40&fontAlignY=35&fontColor=ffffff&desc=High-Performance%20ML%20%26%20Route%20Engine&descAlignY=55&descAlign=50" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=timeGradient&height=200&section=header&text=Last%20Mile%20Delivery%20Optimization&fontSize=40&fontAlignY=35&fontColor=ffffff&desc=High-Performance%20ML%20and%20Route%20Engine&descAlignY=55&descAlign=50" width="100%" alt="Header Image"/>
 
 ### 🚚 Predict Latency. Optimize Routes. Maximize Efficiency. 🚀
 
