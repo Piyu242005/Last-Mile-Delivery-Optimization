@@ -1,48 +1,115 @@
+<!-- HEADER -->
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Travel%20and%20places/Delivery%20Truck.png" alt="Delivery Truck" width="100"/>
 
-  <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=30&pause=1000&color=00D2FF&center=true&vCenter=true&width=800&lines=🚚+Last+Mile+Delivery+Optimization;🚀+Route+Optimization+Engine;📊+50GB%2B+Data+Processing;⚡+Powered+by+XGBoost+%26+OR-Tools" alt="Typing SVG" />
-  </a>
-  
-  <p><i>A high-performance ML & Route Optimization engine processing massive city-scale datasets.</i></p>
-  
-  <p>
-    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-    <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit" />
-    <img src="https://img.shields.io/badge/XGBoost-150458?style=for-the-badge&logo=xgboost&logoColor=white" alt="XGBoost" />
-    <img src="https://img.shields.io/badge/OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="OR-Tools" />
-  </p>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=timeGradient&height=200&section=header&text=Last%20Mile%20Delivery%20Optimization&fontSize=40&fontAlignY=35&fontColor=ffffff&desc=High-Performance%20ML%20%26%20Route%20Engine&descAlignY=55&descAlign=50" width="100%"/>
+
+### 🚚 Predict Latency. Optimize Routes. Maximize Efficiency. 🚀
+
+<br>
+
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](#)
+[![Machine Learning](https://img.shields.io/badge/Machine%20Learning-Enabled-00FF66.svg?style=for-the-badge&logo=scikit-learn&logoColor=black)](#)
+[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B.svg?style=for-the-badge&logo=streamlit&logoColor=white)](#)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-success.svg?style=for-the-badge&logo=github&logoColor=white)](#)
+
+**A highly scalable logistics optimization system capable of processing 50GB+ city-scale datasets to predict delivery times using XGBoost and mathematically orchestrate routes via Google OR-Tools.**
+
 </div>
 
-<br/>
+---
 
-___
+## 📌 Overview
 
-<details>
-  <summary><b>⚡ Overview & Objective (Click to Expand)</b></summary>
-  <br/>
-  <p>A scalable logistics optimization system built using massive NYC Taxi datasets (>50GB scaling capabilities). By treating taxi pickups as <b>warehouse dispatches</b> and drop-offs as <b>delivery destinations</b>, this system simulates a highly dense urban logistics network, offering real-time prediction and dynamic routing to minimize delivery latency.</p>
-  <blockquote>
-    <b>💡 The Objective:</b> Reduce overall delivery delays by accurately predicting transit times and mathematically optimizing vehicle multi-stop routes.
-  </blockquote>
-</details>
+Inefficient last-mile delivery is one of the most expensive logistical hurdles, accounting for over **50% of total shipping costs**.
 
-<details open>
-  <summary><b>🏗️ System Architecture</b></summary>
-  <br/>
-  
-  | 🧩 Component | ⚙️ Technology | 📝 Description |
-  | :--- | :--- | :--- |
-  | **Data & ML Engine** | <img src="https://img.shields.io/badge/XGBoost-150458?style=flat&logo=xgboost&logoColor=white"/> | Chunk-processes large datasets out-of-core. Engineers geospatial features and trains a regressor estimating delivery durations with an **RMSE of 2.98 mins**. |
-  | **Routing Engine**   | <img src="https://img.shields.io/badge/OR--Tools-4285F4?style=flat&logo=google&logoColor=white"/> | Formulates stops into a VRP (Vehicle Routing Problem) distance matrix, identifying the shortest multi-stop path in `< 2 seconds`. |
-  | **Interactive UI**   | <img src="https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white"/> | Exposes dual predictive/routing endpoints and visualizes them on a dynamic real-time map interface via Folium. |
+This project simulates a highly dense urban logistics network using massive NYC Taxi datasets (>50GB scaling capabilities) by treating taxi pickups as **warehouse dispatches** and drop-offs as **delivery destinations**. It doesn't just predict *when* a package will arrive—it determines the *exact shortest multi-stop path* required to deliver it.
 
-</details>
+---
 
-<details>
-  <summary><b>📂 Project Structure & Navigation</b></summary>
+## ✨ System Workflow
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Travel%20and%20places/Delivery%20Truck.png" alt="Delivery Truck Workflow" width="12%">
+</div>
+
+<br>
+
+```text
+Fetch Data ➔ Engineer Features ➔ Predict Duration ➔ Optimize Route ➔ Visual Dashboard
+```
+
+1. **Fetch Data**: Securely handle out-of-core downloads of massive Parquet/CSV datasets.
+2. **Predict Duration**: The XGBoost model calculates highly accurate delivery duration estimates.
+3. **Formulate VRP**: Stops are structured into a Vehicle Routing Problem (VRP) distance matrix.
+4. **Optimize Route**: Google OR-Tools computes the absolute shortest distance crossing all nodes.
+5. **Interactive UI**: View predicted times and interactive routing maps via Folium & Streamlit.
+
+---
+
+## 🚀 Key Features
+
+| Feature | Description | Business Impact |
+| :--- | :--- | :--- |
+| **🎯 Duration Prediction** | XGBoost algorithm estimates travel times with a **2.98 min RMSE**. | Anticipate ETA and logistics delays. |
+| **🗺️ Route Optimization** | Solves 50+ map coordinates to find shortest distances in < 2s. | Slash fuel costs and vehicle wear. |
+| **⚡ Out-of-Core Processing**| Bypasses RAM constraints using smart chunk-reading workflows. | Process 50GB+ data on standard hardware. |
+| **📍 Interactive Mapping** | Renders dynamic real-time map interfaces via Folium. | Visualize node paths easily. |
+| **📊 Centralized Dash** | Clean, accessible Streamlit dashboard powered by FastAPI. | Enables non-technical dispatcher use. |
+
+---
+
+## 🛠️ Technology Stack
+
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Pandas](https://img.shields.io/badge/pandas-%23150458.svg?style=for-the-badge&logo=pandas&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/scikit--learn-%23F7931E.svg?style=for-the-badge&logo=scikit-learn&logoColor=white)
+![XGBoost](https://img.shields.io/badge/XGBoost-111111?style=for-the-badge&logo=xgboost&logoColor=white)
+![OR-Tools](https://img.shields.io/badge/OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+
+</div>
+
+---
+
+## 📊 Evaluation & Impact
+
+- 📈 **Model Performance**: Selected **XGBoost** for its ability to handle immense, sparse geospatial data, maintaining steady **~2.98 min** error margins.
+- ⚡ **Algorithmic Throughput**: The OR-Tools VRP Solver crunches complex multi-stop matrices entirely under **2000 milliseconds**.
+- 💼 **Decision Automaton**: Replaces manual dispatcher mapping with pure mathematical routing efficiency, unlocking massive time & fuel savings.
+
+---
+
+## ⚙️ How to Run
+
+Launch the dashboard locally in a few steps:
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Download the Heavy Dataset 
+# Securely fetches files into the /Dataset/ folder (Ignored by Git)
+python download_data.py
+
+# 3. Process Data & Train Model
+python data/preprocess.py
+python model/train.py
+
+# 4. Fire Up the Backend API (Terminal 1)
+uvicorn api.main:app --reload
+
+# 5. Launch the Dashboard (Terminal 2)
+streamlit run dashboard/app.py
+```
+
+> **Note:** The Streamlit Dashboard will start on `localhost:8501`, and the FastAPI Backend on `localhost:8000`. You can test endpoints via `http://localhost:8000/docs`.
+
+---
+
+## 📁 Repository Structure
 
 ```text
 📦 Last-Mile-Delivery-Optimization
@@ -53,68 +120,28 @@ ___
  ┣ 📂 notebooks         # Jupyter notebooks for EDA and prototyping
  ┣ 📜 download_data.py  # Automated script for heavy dataset management
  ┣ 📜 requirements.txt  # Project dependencies
- ┗ 📜 README.md         # You are here!
-```
-</details>
-
-___
-
-## <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Travel%20and%20places/Rocket.png" width="30" /> Getting Started
-
-Follow these instructions to deploy the intelligent delivery system locally.
-
-### 1️⃣ Install Dependencies
-```bash
-python -m pip install -r requirements.txt
+ ┗ 📜 README.md         # Project documentation
 ```
 
-### 2️⃣ Dataset Configuration
-Due to GitHub's file size limits, the massive NYC Taxi dataset (>7GB core) is not stored here. Run the automated script to securely fetch the original parquet dataset from the official [NYC TLC Trip Record](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) servers:
+---
 
-```bash
-python download_data.py
-```
-*Note: A progress bar will track the download. The data will seamlessly download into `./Dataset/` which is safely ignored by Git.*
+## 🎯 Future Roadmap
 
-### 3️⃣ Process & Train Models
-Process all data in scalable 100k-row chunks and re-train the predictive models:
-```bash
-# Clean & feature engineer
-python data/preprocess.py
+- [ ] **Live Traffic API Module**: Inject genuine live-traffic data into the XGBoost Regressor.
+- [ ] **Cloud Deployment**: Host directly via Render or AWS EC2 for dispatchers to test remotely.
+- [ ] **Mobile Dispatch View**: Implement a responsive UI layer specifically targeting delivery drivers on duty.
 
-# Train XGBoost regressor & save weights
-python model/train.py
-```
+---
 
-### 4️⃣ Fire Up the Backend API
-Launch the high-performance FastAPI server to expose endpoints.
-```bash
-uvicorn api.main:app --reload
-```
-> **🔗 API Running at:** `http://localhost:8000`  
-> **📚 Swagger UI Docs:** `http://localhost:8000/docs`
+## 💬 Let's Connect
 
-### 5️⃣ Launch the Control Center
-Start the Streamlit deployment dashboard in a separate terminal.
-```bash
-streamlit run dashboard/app.py
-```
-> **🖥️ Dashboard Running at:** `http://localhost:8501`
+**Piyush Ramteke**
+- 💼 **LinkedIn**: [Connect with me](https://www.linkedin.com/in/piyu24)
+- 💻 **GitHub**: [Piyu242005](https://github.com/Piyu242005)
+- 📧 **Email**: [piyu.143247@gmail.com](mailto:piyu.143247@gmail.com)
 
-___
-
-## <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Objects/Chart%20Increasing.png" width="30" /> Performance Highlights
-
-- **🎯 Predictive Supremacy:** ~2.98 min error margin on vast amounts of out-of-sample data.
-- **⚡ Out-of-Core Processing:** Bypasses RAM constraints utilizing smart chunk-reading workflows.
-- **🗺️ Algorithmic Edge:** Generates routes factoring 50+ map coordinates to find the shortest distances in under 2000 milliseconds.
-
-___
+<br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Star-Struck.png" alt="Star Struck" width="40"/>
-  <br/>
-  <i>"Built a scalable last-mile delivery optimization system processing large datasets, improving delivery time estimations using Machine Learning (XGBoost) and optimizing delivery pathways via Google OR-Tools and FastAPI."</i>
-  <br/><br/>
-  <b>Built with ❤️ by <a href="https://github.com/Piyu242005">Piyu</a></b>
+  <b>⭐ If you find this repository useful, please consider giving it a star! ⭐</b>
 </div>
