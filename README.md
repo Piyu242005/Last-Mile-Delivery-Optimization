@@ -1,79 +1,109 @@
-# 🚚 Last Mile Delivery Optimization System
-
-A scalable logistics and Last-Mile Delivery optimization system built on top of a 50GB NYC Taxi dataset. The system ingests dispatch coordinates, trains a Machine Learning model to predict delivery times, and provides a routing engine to optimize delivery vehicle paths.
-
-> **Why NYC Taxi Data?**  
-> We treat taxi pickups as "warehouse dispatches" and drop-offs as "delivery destinations" to simulate a dense, real-world urban logistics network.
-
----
-
-## 🎯 Architecture & Features
-
-The project is structured into three main components:
-
-1. **Machine Learning Pipeline (XGBoost Regressor)**
-   - Chunk-reads massive CSV datasets (`data/preprocess.py`) to bypass RAM limits.
-   - Engineers features (Haversine distance, speed mapping, traffic estimation, day/time).
-   - Trains an XGBoost model (`model/train.py`) achieving ~2.98 mins RMSE.
-2. **Route Optimizer (Google OR-Tools)**
-   - Formulates delivery stops as a Vehicle Routing Problem (VRP).
-   - Generates the shortest path connecting a depot to all requested delivery stops.
-3. **Interactive UI & API (FastAPI + Streamlit)**
-   - **Backend**: FastAPI serves the ML predictions and Route Optimization logic.
-   - **Frontend**: Streamlit provides KPI cards, dynamic Folium maps, and a live prediction form.
+<div align="center">
+  <h1>🚚 Last Mile Delivery Optimization System</h1>
+  <p><i>A high-performance ML & Route Optimization engine processing massive city-scale datasets.</i></p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+    <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit" />
+    <img src="https://img.shields.io/badge/XGBoost-150458?style=for-the-badge&logo=xgboost&logoColor=white" alt="XGBoost" />
+    <img src="https://img.shields.io/badge/OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="OR-Tools" />
+  </p>
+</div>
 
 ---
 
-## 🚀 Setup & Execution
+## ⚡ Overview
 
-### 1. Install Dependencies
+A scalable logistics optimization system built using massive NYC Taxi datasets (>50GB scaling capabilities). By treating taxi pickups as **warehouse dispatches** and drop-offs as **delivery destinations**, this system simulates a highly dense urban logistics network, offering real-time prediction and dynamic routing to minimize delivery latency.
+
+> **💡 The Objective:** Reduce overall delivery delays by accurately predicting transit times and mathematically optimizing vehicle multi-stop routes.
+
+---
+
+## 🏗️ System Architecture
+
+The solution architecture spans three critical micro-pipelines:
+
+| 🧩 Component | ⚙️ Technology | 📝 Description |
+| :--- | :--- | :--- |
+| **Data & ML Engine** | `XGBoost`, `Pandas` | Chunk-processes large datasets out-of-core. Engineers geospatial features and trains a regressor estimating delivery durations with an **RMSE of 2.98 mins**. |
+| **Routing Engine**   | `Google OR-Tools` | Formulates stops into a VRP (Vehicle Routing Problem) distance matrix, identifying the shortest multi-stop path in `< 2 seconds`. |
+| **Interactive UI**   | `FastAPI`, `Streamlit` | Exposes dual predictive/routing endpoints and visualizes them on a dynamic real-time map interface via Folium. |
+
+---
+
+## 📂 Project Structure
+
+```text
+📦 Last-Mile-Delivery-Optimization
+ ┣ 📂 api               # FastAPI backend & endpoints
+ ┣ 📂 dashboard         # Streamlit interactive UI
+ ┣ 📂 data              # Data processing & feature engineering logic
+ ┣ 📂 model             # Model training & optimization algorithms
+ ┣ 📂 notebooks         # Jupyter notebooks for EDA and prototyping
+ ┣ 📜 download_data.py  # Automated script for heavy dataset management
+ ┣ 📜 requirements.txt  # Project dependencies
+ ┗ 📜 README.md         # You are here!
+```
+
+---
+
+## 🚀 Getting Started
+
+Follow these steps to deploy the intelligent delivery system locally.
+
+### 1️⃣ Install Dependencies
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 2. Dataset Management
-Due to GitHub's file size restrictions, the massive NYC Taxi dataset (>7GB) is not included in this repository.
-Instead, we provide an automated script to download the necessary data directly from the official [NYC TLC Trip Record Data](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) website.
+### 2️⃣ Dataset Configuration
+Due to GitHub's file size limits, the massive NYC Taxi dataset (>7GB core) is not stored here. Run the automated script to securely fetch the original parquet dataset from the official [NYC TLC Trip Record](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page) servers straight into your local directory:
 
-To download the dataset automatically:
 ```bash
 python download_data.py
 ```
-This will fetch the files with a progress bar and place them securely in the `Dataset/` directory (which is git-ignored).
+*Note: A progress bar will track the download. The data will seamlessly download into `./Dataset/` which is safely ignored by Git.*
 
-### 3. Process Data & Train Model
-*Requires the raw data in the `Dataset/` folder.*
+### 3️⃣ Process & Train Models
+Process all data in scalable 100k-row chunks and re-train the predictive models:
 ```bash
-# Processes the CSVs in 100k-row chunks, cleaning and feature-engineering
+# Clean & feature engineer
 python data/preprocess.py
 
-# Trains the XGBoost model and saves the weights
+# Train XGBoost regressor & save weights
 python model/train.py
 ```
 
-### 4. Start the Backend API
-In terminal 1:
+### 4️⃣ Fire Up the Backend API
+Launch the high-performance FastAPI server to expose endpoints.
 ```bash
 uvicorn api.main:app --reload
 ```
-*API will run on `http://localhost:8000` with Swagger Docs at `http://localhost:8000/docs`.*
+> **🔗 API Running at:** `http://localhost:8000`  
+> **📚 Swagger UI Docs:** `http://localhost:8000/docs`
 
-### 5. Start the Dashboard UI
-In terminal 2:
+### 5️⃣ Launch the Control Center
+Start the Streamlit deployment dashboard in a separate terminal.
 ```bash
 streamlit run dashboard/app.py
 ```
-*Dashboard will run on `http://localhost:8501`.*
+> **🖥️ Dashboard Running at:** `http://localhost:8501`
 
 ---
 
-## 📸 System Overview
+## 📸 Performance Highlights
 
-*   **Prediction Accuracy:** Achieved an **RMSE of 2.98 mins** on out-of-sample data.
-*   **Scalability Check:** The `data/preprocess.py` pipeline is designed using standard data-engineering chunk reading to handle 50GB+ workloads on standard consumer hardware.
-*   **Routing Execution:** The OR-Tools engine solves up to 50 local stops in < 2 seconds.
+- **Predictive Supremacy:** ~2.98 min error margin on vast amounts of out-of-sample data.
+- **Out-of-Core Processing:** Bypasses RAM constraints utilizing smart chunk-reading workflows.
+- **Algorithmic Edge:** Generates routes factoring 50+ map coordinates to find the shortest distances in under 2000 milliseconds.
 
 ---
 
-### 💼 Resume Highlight
-> *Built a scalable last-mile delivery optimization system processing large datasets, improving delivery time estimations using XGBoost and optimizing delivery routes using Google OR-Tools and FastAPI.*
+> 💻 **Resume Highlight:** *"Built a scalable last-mile delivery optimization system processing large datasets, improving delivery time estimations using Machine Learning (XGBoost) and optimizing delivery pathways via Google OR-Tools and FastAPI."*
+
+---
+<div align="center">
+  <b>Built by Piyu</b>
+</div>
