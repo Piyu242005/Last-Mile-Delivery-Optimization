@@ -1,0 +1,17 @@
+{
+  "best_model": "XGBoost",
+  "results": {
+    "LinearRegression": {
+      "RMSE_mins": 4.44,
+      "R2": 0.75
+    },
+    "RandomForest": {
+      "RMSE_mins": 3.13,
+      "R2": 0.876
+    },
+    "XGBoost": {
+      "RMSE_mins": 2.98,
+      "R2": 0.888
+    }
+  }
+}

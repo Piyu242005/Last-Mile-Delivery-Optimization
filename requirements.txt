@@ -1,0 +1,17 @@
+pandas>=2.1.0
+numpy>=1.24.0
+scikit-learn
+xgboost
+ortools
+fastapi
+uvicorn[standard]
+streamlit
+folium
+streamlit-folium
+matplotlib
+seaborn
+joblib
+pyarrow
+requests
+pydantic
+haversine

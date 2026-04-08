@@ -1,0 +1,8 @@
+{
+  "total_rows": 500000,
+  "avg_duration_mins": 12.35,
+  "avg_distance_km": 3.25,
+  "avg_speed_mph": 12.46,
+  "date_range_start": "2015-01-01 00:09:45",
+  "date_range_end": "2015-01-31 23:57:53"
+}
