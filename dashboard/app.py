@@ -145,9 +145,21 @@ with tab2:
         c1, c2, c3 = st.columns(3)
         c1.metric("Unoptimized Baseline", f"{data['baseline_distance_km']} km")
         c2.metric("Optimized Distance VRP", f"{data['total_distance_km']} km", delta=f"-{data['saved_distance_km']} km")
-        c3.metric("Efficiency Improvement", f"{data['efficiency_improvement_pct']} %", delta="Optimized")
+        st.markdown("### Cost & Efficiency Impact")
+        fuel_cost_per_km = 0.25 # USD
+        hourly_wage = 25.0 # USD
         
-        st.markdown("### Vehicle Metrics")
+        saved_fuel = data['saved_distance_km'] * fuel_cost_per_km
+        saved_mins = (data['saved_distance_km'] / 30) * 60 # assumption: 30km/h avg
+        saved_labor = (saved_mins / 60) * hourly_wage
+        total_savings = saved_fuel + saved_labor
+        
+        c4, c5, c6 = st.columns(3)
+        c4.metric("Distance Reduced", f"{data['efficiency_improvement_pct']} %", f"-{data['saved_distance_km']} km")
+        c5.metric("Time Saved (Est)", f"{int(saved_mins)} mins", f"Across {num_vehicles} Drivers")
+        c6.metric("Cost Reduction", f"${round(total_savings, 2)}", "Fuel & Labor Saved")
+        
+        st.markdown("### Vehicle Routing Details")
         df_list = []
         for r in data['routes']:
             df_list.append({"Vehicle ID": r['vehicle_id'], "Stops Visited": len(r['stops']) - 2, "Distance (km)": r['distance_km'], "Cargo Load Used": r['load']})

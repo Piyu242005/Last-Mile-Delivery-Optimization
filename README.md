@@ -28,7 +28,22 @@ The goal of this project is to optimize delivery routes to minimize distance, co
 
 ---
 
-## ⚙️ Approach
+## ⚙️ Approach & Architecture
+
+### System Architecture
+```mermaid
+graph TD;
+    A[Streamlit UI] -->|1. Config & GPS locations| B(FastAPI Backend);
+    B -->|2. Request Distance Matrix| C{OSRM / Haversine};
+    C -->|3. Route Geometries| B;
+    B -->|4. VRP Constraints| D[Google OR-Tools Engine];
+    D -->|5. Optimal Node Sequence| B;
+    B -->|6. JSON Response| A;
+    A -->|7. Render| E[Folium Interactive Map];
+    
+    F[Historical Data] -->|Train| G((Random Forest ML Model));
+    G -->|ETA Prediction| B;
+```
 
 - **Data Processing:** Processed and down-sampled the large real-world NYC Yellow Taxi Dataset to extract realistic delivery locations.
 - **Distance Matrix:** Created an accurate distance matrix between delivery locations.
@@ -55,9 +70,17 @@ Implementing CVRP optimization achieves significant performance improvements ove
 The optimized routes are visualized using maps to clearly show delivery paths and efficiency.
 
 <div align="center">
-  <img src="https://via.placeholder.com/800x400.png?text=Add+Map+Screenshot+Here" width="80%" alt="Map Visualization Screenshot Placeholder" />
-  
-  <br>*(Replace this placeholder with an actual screenshot of the Folium map generated in the App!)*
+  <h3>🗺️ Optimized Route Visualization (OSRM + OR-Tools)</h3>
+  <img src="Screenshot/map_view.png" width="80%" alt="Interactive Folium Map visualizing multiple constrained vehicles" />
+  <br>*(Real-road geometry via OSRM Engine, dynamic CVRP multi-depot solver)*
+</div>
+
+<br>
+
+<div align="center">
+  <h3>📊 Performance Metrics & Live Dashboard</h3>
+  <img src="Screenshot/metrics_view.png" width="80%" alt="Streamlit Dashboard calculating Efficiency Improvement % and Time Savings" />
+  <br>*(Calculating dynamic baseline vs optimized dispatch distances)*
 </div>
 
 ---
