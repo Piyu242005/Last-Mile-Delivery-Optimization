@@ -46,10 +46,30 @@ graph TD;
 ```
 
 - **Data Processing:** Processed and down-sampled the large real-world NYC Yellow Taxi Dataset to extract realistic delivery locations.
-- **Distance Matrix:** Created an accurate distance matrix between delivery locations.
-- **Algorithmic Routing:** Applied optimization algorithms (TSP/CVRP via Google OR-Tools) to design multi-route constraints.
-- **Optimal Dispatching:** Generated optimal delivery routes and assigned multiple drivers dynamically.
-- **Benchmarking:** Compared optimized vs. non-optimized routes using an interactive dashboard.
+- **Distance Matrix Formulation:** Created a highly accurate geographic distance matrix. Fast computations utilizing the Haversine formula are optionally enriched through the OSRM (Open Source Routing Machine) API to snap points onto valid, drivable street segments.
+- **Algorithmic Optimization Engine:** Modeled dispatching as a **Capacitated Vehicle Routing Problem (CVRP)** using Google OR-Tools. 
+    - *First Solution Strategy:* PATH_CHEAPEST_ARC to rapidly construct a feasible lower-bound delivery schedule.
+    - *Local Search Metaheuristic:* GUIDED_LOCAL_SEARCH applied across a designated temporal boundary (e.g., 3-second limit per API request) to escape local minima and yield optimal efficiency.
+- **Machine Learning Integration:** A Random Forest / XGBoost Regressor trained on baseline temporal logistics variables (Distance, Fleet Speed, Hour of Day, Traffic Multiplier heuristics) predicts dynamic parcel Estimated Time of Arrivals (ETAs), displacing standard analytical logic with statistically correlated predictions.
+- **Optimal Multi-Agent Dispatching:** Dynamically bounds route arrays per vehicle dependent strictly on individual carrying-capacities versus aggregated nodal demands.
+
+<details>
+<summary><b>🧠 See Technical Constraints & Mathematical Model (Click to expand)</b></summary>
+
+**1. Optimization Objective Equation**  
+The routing engine attempts to minimize the total travel cost (or distance) across all active routes without violating vehicle capacities:  
+`Minimize:  Σ (from i=0 to N) Σ (from j=0 to N) Σ (from k=1 to V) Cost(i,j) * X(i,j,k)`  
+*Where `X(i,j,k) = 1` if vehicle `k` drives from node `i` to node `j`, else `0`.*
+
+**2. Core VRP Constraints Modeled**  
+- **Capacity Constraint (1D Bin Packing):** The cumulative sum of demand at stops assigned to Route `k` must be `<=` Vehicle Capacity `k`.
+- **Node Visitation:** Every single delivery stop must be visited exactly once (except the depot/warehouse).
+- **Sub-Tour Elimination:** Drivers must eventually close the Hamiltonian circuit back to the Global Depot `Node(0)`.
+
+**3. The ETA Predictive Feature Vector**  
+The FastAPI regressor expects: `[haversine_km, hour_of_day, speed_mph, weekday]`. 
+The model applies dynamic traffic delay polynomials representing distinct real-world rush-hour delays in New York routing scenarios.
+</details>
 
 ---
 
