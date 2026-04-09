@@ -69,19 +69,7 @@ Implementing CVRP optimization achieves significant performance improvements ove
 
 The optimized routes are visualized using maps to clearly show delivery paths and efficiency.
 
-<div align="center">
-  <h3>🗺️ Optimized Route Visualization (OSRM + OR-Tools)</h3>
-  <img src="Screenshot/map_view.png" width="80%" alt="Interactive Folium Map visualizing multiple constrained vehicles" />
-  <br>*(Real-road geometry via OSRM Engine, dynamic CVRP multi-depot solver)*
-</div>
-
 <br>
-
-<div align="center">
-  <h3>📊 Performance Metrics & Live Dashboard</h3>
-  <img src="Screenshot/metrics_view.png" width="80%" alt="Streamlit Dashboard calculating Efficiency Improvement % and Time Savings" />
-  <br>*(Calculating dynamic baseline vs optimized dispatch distances)*
-</div>
 
 <p align="center">
   <b>🚚 Route Optimization & Map Visualization</b><br>
@@ -104,7 +92,8 @@ The optimized routes are visualized using maps to clearly show delivery paths an
   <img src="Screenshot/3rd output.png" width="900"/><br>
   <sub>Performance comparison showing distance optimization and efficiency improvement.</sub>
 </p>
-  <br>*
+  <br>
+  
 ---
 
 ## ✨ Features
