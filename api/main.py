@@ -1,33 +1,40 @@
-"""
-api/main.py
------------
-FastAPI app exposing endpoints for delivery time prediction and route optimization.
-"""
-
-import sys
-import joblib
-from pathlib import Path
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, conlist
-
-# We need to import route_optimizer from the parent directory
-sys.path.append(str(Path(__file__).parent.parent))
+﻿from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List
 from model.route_optimizer import solve_vrp
+import uvicorn
+import math
 
 app = FastAPI(title="Last Mile Delivery API")
 
-MODEL_PATH = Path(__file__).parent.parent / "model" / "best_model.pkl"
+class Coordinates(BaseModel):
+    lat: float
+    lon: float
 
-# Load the model at startup
-try:
-    model = joblib.load(MODEL_PATH)
-    print("✅ Model loaded successfully.")
-except Exception as e:
-    print(f"⚠️ Error loading model: {e}")
-    model = None
+class RouteRequest(BaseModel):
+    depot: Coordinates
+    stops: List[Coordinates]
+    num_vehicles: int = 1
+    demands: List[int] = None
+    vehicle_capacities: List[int] = None
+    traffic_factor: float = 1.0
 
-# --- Schemas ---
-class PredictionRequest(BaseModel):
+@app.post("/optimize-route")
+def optimize_route(req: RouteRequest):
+    depot_tuple = (req.depot.lat, req.depot.lon)
+    stops_tuples = [(stop.lat, stop.lon) for stop in req.stops]
+    
+    result = solve_vrp(
+        depot_coords=depot_tuple, 
+        stops_coords=stops_tuples,
+        num_vehicles=req.num_vehicles,
+        vehicle_capacities=req.vehicle_capacities,
+        demands=req.demands,
+        traffic_factor=req.traffic_factor
+    )
+    return result
+
+class PredictRequest(BaseModel):
     trip_distance: float
     haversine_km: float
     hour_of_day: int
@@ -35,50 +42,14 @@ class PredictionRequest(BaseModel):
     is_weekend: int
     speed_mph: float
 
-class Point(BaseModel):
-    lat: float
-    lon: float
-
-class RouteOptimizationRequest(BaseModel):
-    depot: Point
-    stops: conlist(Point, min_length=1, max_length=50) # type: ignore
-    num_vehicles: int = 1
-
-# --- Endpoints ---
-@app.get("/")
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "model_loaded": model is not None}
-
 @app.post("/predict")
-def predict_delivery_time(req: PredictionRequest):
-    if not model:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-    
-    # Feature order must match training data
-    features = [[
-        req.haversine_km,
-        req.hour_of_day,
-        req.day_of_week,
-        req.is_weekend,
-        req.speed_mph
-    ]]
-    
-    try:
-        duration_mins = model.predict(features)[0]
-        return {"predicted_duration_mins": round(float(duration_mins), 2)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+def predict_duration(req: PredictRequest):
+    # Dummy mock prediction returning formula based result for UI demonstration
+    # Since we lack the trained XGBoost model here.
+    base_time = (req.trip_distance / req.speed_mph) * 60
+    traffic_modifier = 1.0 + (math.sin(req.hour_of_day/24 * math.pi) * 0.5)
+    total_mins = round(base_time * traffic_modifier, 2)
+    return {"predicted_duration_mins": total_mins}
 
-@app.post("/optimize-route")
-def optimize_route(req: RouteOptimizationRequest):
-    depot_tuple = (req.depot.lat, req.depot.lon)
-    stops_list = [(stop.lat, stop.lon) for stop in req.stops]
-    
-    try:
-        result = solve_vrp(depot_tuple, stops_list, num_vehicles=req.num_vehicles)
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)
