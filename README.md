@@ -55,8 +55,29 @@ Implementing CVRP optimization achieves significant performance improvements ove
 The optimized routes are visualized using maps to clearly show delivery paths and efficiency.
 
 <div align="center">
-  <img src="https://via.placeholder.com/800x400.png?text=Add+Map+Screenshot+Here" width="80%" alt="Map Visualization Screenshot Placeholder" />
-  
+## 📸 Screenshots
+
+<p align="center">
+  <b>🚚 Route Optimization & Map Visualization</b><br>
+  <img src="Screenshot/1st output.png" width="900"/><br>
+  <sub>Optimized delivery routes displayed on an interactive map using multiple vehicles.</sub>
+</p>
+
+---
+
+<p align="center">
+  <b>⏱️ Delivery Time Predictor</b><br>
+  <img src="Screenshot/2nd output.png" width="900"/><br>
+  <sub>Predict delivery duration based on distance, traffic conditions, and time of day.</sub>
+</p>
+
+---
+
+<p align="center">
+  <b>📊 Logistics Performance Metrics</b><br>
+  <img src="Screenshot/3rd output.png" width="900"/><br>
+  <sub>Performance comparison showing distance optimization and efficiency improvement.</sub>
+</p>
   <br>*(Replace this placeholder with an actual screenshot of the Folium map generated in the App!)*
 </div>
 
