@@ -16,9 +16,9 @@
 
 </div>
 
----
+----
 
-## 📌 Problem Statement
+# 📌 Problem Statement
 
 Inefficient last-mile delivery is one of the most expensive logistical hurdles, accounting for over **50% of total shipping costs**. Manual dispatching cannot account for real-time traffic, multiple vehicle capacities, and complex multi-stop routes simultaneously.
 
@@ -29,39 +29,6 @@ This project solves this by treating delivery drops as a **Vehicle Routing Probl
 - Simulated Traffic Multipliers
 ---
 
-## 📂 Dataset
-
-This project uses a large dataset (~2GB) which exceeds GitHub's file size limits.
-
-To ensure smooth access, the dataset is hosted externally.
-
-🔗 **Download Dataset:**  
-https://your-google-drive-link
-
-### 📁 Setup Instructions
-```bash
-# Step 1: Download dataset
-# Step 2: Extract files
-
-# Step 3: Move to project folder
-project/
-│── data/   ← place dataset here
-│── src/
-│── app.py
-
-## ✨ The Solution & Approach
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Travel%20and%20places/Delivery%20Truck.png" alt="Delivery Truck Workflow" width="12%">
-</div>
-
-Using **Google OR-Tools** and a highly responsive **FastAPI + Streamlit** stack, we dynamically generate dispatch commands:
-1. **Fetch & Ingest**: Process coordinates and demand values interactively.
-2. **Formulate CVRP**: Calculate a traffic-weighted Haversine distance matrix. Set up nodes, arcs, and capacities.
-3. **Route Construction**: The OR-Tools local search metaheuristic computes the absolute shortest distance distributing packages across multiple drivers in seconds.
-4. **Interactive Mapping**: Routes are projected directly onto stunning Folium maps with individual driver colors.
-
----
 
 ## 🚀 Key Features and Metrics
 
@@ -77,10 +44,16 @@ Using **Google OR-Tools** and a highly responsive **FastAPI + Streamlit** stack,
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
 ![OR-Tools](https://img.shields.io/badge/OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white)
 ![Folium](https://img.shields.io/badge/Folium-Leaflet-green?style=for-the-badge)
+![Matplotlib](https://img.shields.io/badge/Matplotlib-11557C?style=for-the-badge)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![Jupyter](https://img.shields.io/badge/Jupyter-DA5B0B?style=for-the-badge&logo=jupyter&logoColor=white)
+![VS Code](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
 
 </div>
 
@@ -88,24 +61,52 @@ Using **Google OR-Tools** and a highly responsive **FastAPI + Streamlit** stack,
 
 ## 📊 Dataset
 
+This project uses a large dataset (~2GB) which exceeds GitHub's file size limits.
+
+To ensure smooth access, the dataset is hosted externally.
+
+🔗 **Download Dataset:**  
+[Datasets Click TO Download](https://www.kaggle.com/datasets/elemento/nyc-yellow-taxi-trip-data)
+
 This project uses the NYC Yellow Taxi Trip Data. You can download the dataset from Kaggle:
 👉 [NYC Yellow Taxi Trip Data](https://www.kaggle.com/datasets/elemento/nyc-yellow-taxi-trip-data)
 
-Ensure to place the downloaded dataset files into the `Dataset/` directory before running the system.
+### 📁 Setup Instructions
+```bash
+### 📌 Instructions
+1. Download the dataset from the above link
+2. Extract the files (if zipped)
+3. Place the dataset in the following directory:
+   data/
+
+# Step 3: Move to project folder
+project/
+│── data/   ← place dataset here
+│── src/
+│── app.py
+```
+
+## 📧 Let's Connect & Collaborate
+
+<div align="center">
+
+[![Email](https://img.shields.io/badge/📧_Email-piyu.143247@gmail.com-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:piyu.143247@gmail.com)
+[![LinkedIn](https://img.shields.io/badge/💼_LinkedIn-Piyush_Ramteke-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/piyush-ramteke-24-mylife)
+[![GitHub](https://img.shields.io/badge/🐙_GitHub-Piyu242005-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Piyu242005)
+[![Instagram](https://img.shields.io/badge/📸_Instagram-my.life__24143-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/my.life_24143/)
+
+</div>
 
 ---
 
-## ⚙️ How to Run
+<div align="center">
 
-Launch the dashboard locally in two terminals:
+### ⭐ If you find this repository helpful, dropping a star would mean a lot!
 
-`ash
-# Terminal 1: Run the Backend API Engine
-pip install fastapi uvicorn ortools haversine folium streamlit-folium pydantic
-python -m uvicorn api.main:app --reload
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" width="100%" />
 
-# Terminal 2: Connect the Dashboard
-python -m streamlit run dashboard/app.py
-`
+Made with 💚 by **Piyush Ramteke** © 2026
 
-> **Note:** Open localhost:8501. Test API directly at http://localhost:8000/docs.
+![Visitors](https://api.visitorbadge.io/api/visitors?path=Piyu242005%2FPiyu-Portfolio-Website&countColor=%23c8ff00)
+
+</div>
