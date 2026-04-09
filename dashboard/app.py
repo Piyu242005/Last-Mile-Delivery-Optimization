@@ -14,6 +14,22 @@ API_URL = "http://localhost:8000"
 
 st.set_page_config(page_title="Last Mile Delivery Optimizer", page_icon="🚚", layout="wide", initial_sidebar_state="expanded")
 
+def get_osrm_route(coords):
+    """Fetch real road geometries from OSRM."""
+    try:
+        base_url = "http://router.project-osrm.org/route/v1/driving/"
+        # OSRM takes lon,lat
+        coord_str = ";".join([f"{lon},{lat}" for lat, lon in coords])
+        url = f"{base_url}{coord_str}?overview=full&geometries=geojson"
+        res = requests.get(url, timeout=5).json()
+        if "routes" in res and len(res["routes"]) > 0:
+            # Extract coordinates and flip back to lat,lon for Folium
+            geo = res["routes"][0]["geometry"]["coordinates"]
+            return [[lat, lon] for lon, lat in geo]
+    except Exception as e:
+        print(f"OSRM Error: {e}")
+    return coords  # fallback to straight lines if OSRM fails
+
 st.title("🚚 Last Mile Delivery Optimization")
 st.markdown("Production-ready VRPTW routing system with multiple vehicles, capacity constraints, and traffic dynamics.")
 
@@ -40,13 +56,28 @@ with tab1:
         default_stops = "40.748,-73.985,5\n40.761,-73.978,7\n40.732,-73.996,4\n40.739,-73.988,6\n40.755,-73.973,8\n40.765,-73.982,3"
         stops_input = st.text_area("Stops (Lat, Lon, Demand)", default_stops, height=180)
         
+        # Real-time simulation integration
+        if st.button("🌟 Add Live Order (Dynamic Reroute)"):
+            # Inject a new realistic coordinate randomly
+            new_lat = round(random.uniform(40.730, 40.770), 4)
+            new_lon = round(random.uniform(-74.000, -73.970), 4)
+            new_demand = random.randint(1, 5)
+            # Update the widget state by adding to session_state
+            if "dyn_stops" not in st.session_state:
+                st.session_state.dyn_stops = default_stops
+            st.session_state.dyn_stops += f"\n{new_lat},{new_lon},{new_demand}"
+            st.info(f"Added new order at {new_lat}, {new_lon} (Demand: {new_demand}). Re-optimize!")
+        
+        dyn_stop_val = st.session_state.get("dyn_stops", stops_input)
+        # Update text area visually if we changed it, otherwise use what is there
+        
         if st.button("Optimize Fleet Route", type="primary"):
             d_lat, d_lon = map(float, depot_input.split(","))
             depot = {"lat": d_lat, "lon": d_lon}
             stops = []
             demands = [0] # index 0 is depot
             try:
-                for line in stops_input.split("\n"):
+                for line in dyn_stop_val.split("\n"):
                     if line.strip():
                         parts = line.split(",")
                         lat, lon = float(parts[0]), float(parts[1])
@@ -87,8 +118,15 @@ with tab1:
             
             for i, r in enumerate(data['routes']):
                 c = colors[i % len(colors)]
+                # Straight line coordinates from optimization
                 pts = [[s["lat"], s["lon"]] for s in r['stops']]
-                folium.PolyLine(pts, color=c, weight=5, opacity=0.8, tooltip=f"Vehicle {r['vehicle_id']}").add_to(m)
+                
+                # Fetch OSRM real-road geometry
+                with st.spinner(f"Mapping actual roads for Vehicle {r['vehicle_id']}..."):
+                    osrm_pts = get_osrm_route(pts)
+                
+                # Plot the road path
+                folium.PolyLine(osrm_pts, color=c, weight=5, opacity=0.8, tooltip=f"Vehicle {r['vehicle_id']} (OSRM)").add_to(m)
                 
                 # Markers
                 for idx, stop in enumerate(r['stops']):
