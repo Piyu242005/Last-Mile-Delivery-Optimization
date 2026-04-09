@@ -78,9 +78,7 @@ The optimized routes are visualized using maps to clearly show delivery paths an
   <img src="Screenshot/3rd output.png" width="900"/><br>
   <sub>Performance comparison showing distance optimization and efficiency improvement.</sub>
 </p>
-  <br>*(Replace this placeholder with an actual screenshot of the Folium map generated in the App!)*
-</div>
-
+  <br>*
 ---
 
 ## ✨ Features
