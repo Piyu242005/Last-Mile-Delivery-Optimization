@@ -7,13 +7,15 @@ from streamlit_folium import st_folium
 from pathlib import Path
 import pandas as pd
 import random
+import os
 
 ROOT = Path(__file__).parent.parent
 STATS_PATH = ROOT / "data" / "dataset_stats.json"
-API_URL = "http://localhost:8000"
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Last Mile Delivery Optimizer", page_icon="🚚", layout="wide", initial_sidebar_state="expanded")
 
+@st.cache_data
 def get_osrm_route(coords):
     """Fetch real road geometries from OSRM."""
     try:
@@ -21,7 +23,8 @@ def get_osrm_route(coords):
         # OSRM takes lon,lat
         coord_str = ";".join([f"{lon},{lat}" for lat, lon in coords])
         url = f"{base_url}{coord_str}?overview=full&geometries=geojson"
-        res = requests.get(url, timeout=5).json()
+        headers = {"User-Agent": "LastMileOptimization/1.0"}
+        res = requests.get(url, headers=headers, timeout=5).json()
         if "routes" in res and len(res["routes"]) > 0:
             # Extract coordinates and flip back to lat,lon for Folium
             geo = res["routes"][0]["geometry"]["coordinates"]
@@ -95,7 +98,7 @@ with tab1:
                 }
                 
                 with st.spinner("Solving advanced VRP..."):
-                    res = requests.post(f"{API_URL}/optimize-route", json=payload)
+                    res = requests.post(f"{API_URL}/optimize-route", json=payload, timeout=15)
                     if res.status_code == 200:
                         data = res.json()
                         st.session_state["route_data"] = data
@@ -183,7 +186,7 @@ with tab3:
         payload = {"trip_distance": dist, "haversine_km": hav_km, "hour_of_day": hour, "day_of_week": 1, "is_weekend": 0, "speed_mph": speed}
         try:
             with st.spinner("Model executing..."):
-                res = requests.post(f"{API_URL}/predict", json=payload)
+                res = requests.post(f"{API_URL}/predict", json=payload, timeout=15)
                 if res.status_code == 200: st.success(f"### ⏱️ ETA: **{res.json()['predicted_duration_mins']} mins**")
                 else: st.error("Error connecting to predictor engine.")
         except Exception as e: st.error(f"Failed to connect: {e}")
