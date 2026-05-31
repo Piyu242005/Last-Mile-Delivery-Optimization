@@ -8,12 +8,36 @@ from pathlib import Path
 import pandas as pd
 import random
 import os
+import asyncio
+import aiohttp
 
 ROOT = Path(__file__).parent.parent
 STATS_PATH = ROOT / "data" / "dataset_stats.json"
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(page_title="Last Mile Delivery Optimizer", page_icon="🚚", layout="wide", initial_sidebar_state="expanded")
+
+async def fetch_osrm_route(session, coords):
+    """Wait for async OSRM route fetch."""
+    try:
+        base_url = "http://router.project-osrm.org/route/v1/driving/"
+        coord_str = ";".join([f"{lon},{lat}" for lat, lon in coords])
+        url = f"{base_url}{coord_str}?overview=full&geometries=geojson"
+        headers = {"User-Agent": "LastMileOptimization/1.0"}
+        async with session.get(url, headers=headers, timeout=10) as res:
+            if res.status == 200:
+                data = await res.json()
+                if "routes" in data and len(data["routes"]) > 0:
+                    geo = data["routes"][0]["geometry"]["coordinates"]
+                    return [[lat, lon] for lon, lat in geo]
+    except Exception as e:
+        print(f"OSRM Error: {e}")
+    return coords 
+
+async def fetch_all_routes_async(routes_coords):
+    async with aiohttp.ClientSession() as session:
+        tasks = [fetch_osrm_route(session, coords) for coords in routes_coords]
+        return await asyncio.gather(*tasks)
 
 @st.cache_data
 def get_osrm_route(coords):
@@ -119,14 +143,16 @@ with tab1:
             # Draw Depot
             folium.Marker(loc, popup="Global Depot", icon=folium.Icon(color='red', icon='home', prefix='fa')).add_to(m)
             
+            with st.spinner("Mapping actual roads for all vehicles concurrently..."):
+                all_pts = []
+                for r in data['routes']:
+                    all_pts.append([[s["lat"], s["lon"]] for s in r['stops']])
+                # Run async gathering
+                osrm_routes = asyncio.run(fetch_all_routes_async(all_pts))
+            
             for i, r in enumerate(data['routes']):
                 c = colors[i % len(colors)]
-                # Straight line coordinates from optimization
-                pts = [[s["lat"], s["lon"]] for s in r['stops']]
-                
-                # Fetch OSRM real-road geometry
-                with st.spinner(f"Mapping actual roads for Vehicle {r['vehicle_id']}..."):
-                    osrm_pts = get_osrm_route(pts)
+                osrm_pts = osrm_routes[i]
                 
                 # Plot the road path
                 folium.PolyLine(osrm_pts, color=c, weight=5, opacity=0.8, tooltip=f"Vehicle {r['vehicle_id']} (OSRM)").add_to(m)
@@ -156,11 +182,14 @@ with tab2:
         saved_mins = (data['saved_distance_km'] / 30) * 60 # assumption: 30km/h avg
         saved_labor = (saved_mins / 60) * hourly_wage
         total_savings = saved_fuel + saved_labor
+        co2_per_km = 0.12 # kg CO2 per km
+        saved_co2 = data['saved_distance_km'] * co2_per_km
         
-        c4, c5, c6 = st.columns(3)
+        c4, c5, c6, c7 = st.columns(4)
         c4.metric("Distance Reduced", f"{data['efficiency_improvement_pct']} %", f"-{data['saved_distance_km']} km")
-        c5.metric("Time Saved (Est)", f"{int(saved_mins)} mins", f"Across {num_vehicles} Drivers")
+        c5.metric("Time Saved", f"{int(saved_mins)} mins", f"Across {num_vehicles} Drivers")
         c6.metric("Cost Reduction", f"${round(total_savings, 2)}", "Fuel & Labor Saved")
+        c7.metric("CO₂ Saved", f"{round(saved_co2, 2)} kg", "Green footprint")
         
         st.markdown("### Vehicle Routing Details")
         df_list = []
