@@ -1,4 +1,8 @@
-﻿from fastapi import FastAPI
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 from model.route_optimizer import solve_vrp
