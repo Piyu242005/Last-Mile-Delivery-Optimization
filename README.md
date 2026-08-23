@@ -1,234 +1,121 @@
 # 🚚 Last-Mile Delivery Optimization
 
-> **ML-powered ETA prediction + Capacitated Vehicle Routing (CVRP) for multi-vehicle last-mile logistics.**
+### ML-Powered ETA Prediction + Capacitated Vehicle Routing
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](#)
-[![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)](#)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)](#)
-[![OR-Tools](https://img.shields.io/badge/Google%20OR--Tools-CVRP-4285F4)](#)
-[![CI](https://github.com/Piyu242005/Last-Mile-Delivery-Optimization/actions/workflows/ci.yml/badge.svg)](https://github.com/Piyu242005/Last-Mile-Delivery-Optimization/actions/workflows/ci.yml)
+This project combines **Machine Learning, Operations Research and geospatial analytics** to improve multi-vehicle last-mile delivery planning.
 
-## Overview
+> **Purpose:** I created this project to solve a real logistics problem: predict delivery duration and then use optimization algorithms to assign stops to vehicles while respecting capacity constraints.
 
-This project combines **Operations Research, Machine Learning, geospatial distance calculation, and API engineering** to improve last-mile delivery planning.
+## 🎯 What It Does
 
-The system:
+1. Accepts depot, delivery stops, fleet size, capacities and demands.
+2. Builds geographic distances with the Haversine formula.
+3. Solves a **Capacitated Vehicle Routing Problem (CVRP)** with OR-Tools.
+4. Compares the optimized route with a reproducible nearest-neighbor baseline.
+5. Predicts ETA using regression models with an analytical fallback.
+6. Visualizes routes and metrics through Streamlit/Folium.
 
-1. Accepts a depot, delivery stops, fleet size, capacities, demands, and traffic factor.
-2. Builds a geographic distance matrix using the Haversine formula.
-3. Solves a **Capacitated Vehicle Routing Problem (CVRP)** with Google OR-Tools.
-4. Compares the optimized solution with a deterministic **nearest-neighbor round-trip baseline**.
-5. Predicts delivery duration using a trained regression model when available, with an analytical fallback.
-6. Displays routes and logistics metrics through Streamlit + Folium.
-
-## Architecture
+## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    UI[Streamlit Dashboard] --> API[FastAPI Backend]
-    API --> ROUTE[OR-Tools CVRP Engine]
-    ROUTE --> DIST[Haversine Distance Matrix]
-    API --> ETA[ETA Regression Model]
-    DATA[NYC Yellow Taxi Data] --> PREP[Preprocessing]
-    PREP --> TRAIN[Time-aware Model Training]
+    UI[Streamlit] --> API[FastAPI]
+    API --> CVRP[OR-Tools CVRP]
+    CVRP --> DIST[Distance Matrix]
+    API --> ETA[ETA Model]
+    DATA[Taxi Data] --> TRAIN[Time-aware Training]
     TRAIN --> ETA
     API --> UI
-    UI --> MAP[Folium Map]
 ```
 
-## Core Optimization Model
+## 🤖 ETA Models
 
-The routing engine minimizes total route distance while enforcing fleet-capacity constraints.
-
-- **Decision:** assign every delivery stop to a vehicle and determine visit order.
-- **Constraint:** route demand must not exceed vehicle capacity.
-- **Coverage:** each delivery stop is visited exactly once.
-- **Depot:** every active vehicle starts and returns to the depot.
-- **Search:** `PATH_CHEAPEST_ARC` followed by `GUIDED_LOCAL_SEARCH` with a 3-second solver budget.
-
-### Baseline methodology
-
-The project now uses a reproducible **nearest-neighbor round-trip baseline** rather than summing independent depot-to-stop distances. This makes the optimization-improvement percentage more meaningful.
-
-> Note: CVRP with a time-limited heuristic search is not guaranteed to be mathematically optimal for every input. The API therefore reports **"Feasible solution found"** rather than claiming global optimality.
-
-## ETA Machine Learning
-
-Three regression models are compared:
+Compared models:
 
 - Linear Regression
 - Random Forest Regressor
 - XGBoost Regressor
 
-Features:
+Features include distance, hour, day-of-week, weekend status and speed. Validation uses a **chronological 80/20 split** when timestamps are available.
 
-`haversine_km`, `hour_of_day`, `day_of_week`, `is_weekend`, `speed_mph`
+## 📊 Optimization
 
-Metrics:
+The solver minimizes route distance while enforcing:
 
-- MAE
-- RMSE
-- R²
+- Every stop visited exactly once
+- Vehicle capacity constraints
+- Depot start/end
+- Time-limited heuristic search
 
-### Validation
+> A time-limited CVRP search is not guaranteed to find the global optimum. The application therefore reports a feasible optimized solution rather than claiming mathematical optimality.
 
-The training pipeline uses a **chronological 80/20 split** when a timestamp is available, keeping newer observations unseen during training. This is more appropriate for time-dependent ETA prediction than a purely random split.
-
-Run training with:
+## 🚀 Run Locally
 
 ```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+pytest -q
 python model/train.py --subset 100000
-```
-
-Metrics are saved to `model/metrics.json` and the selected model is saved as `model/best_model.pkl`.
-
-## API
-
-Start the backend:
-
-```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-Health check:
+Run the dashboard separately:
 
-```text
-GET /health
+```bash
+streamlit run dashboard/app.py
 ```
 
-Route optimization:
+## 🔌 API
 
 ```text
+GET  /health
 POST /optimize-route
-```
-
-ETA prediction:
-
-```text
 POST /predict
 ```
 
-The API validates coordinate ranges, fleet configuration, demand lengths, capacities, and prediction inputs. Route errors return structured HTTP errors instead of being silently swallowed.
+The API validates coordinates, fleet configuration, capacities, demands and prediction inputs.
 
-## Dashboard
-
-Start Streamlit:
-
-```bash
-streamlit run dashboard/app.py
-```
-
-The dashboard provides interactive route visualization, delivery metrics, and ETA prediction.
-
-## Project Structure
+## 📁 Structure
 
 ```text
-.
-├── api/
-│   └── main.py
-├── dashboard/
-│   └── app.py
-├── data/
-│   ├── preprocess.py
-│   └── dataset_stats.json
-├── model/
-│   ├── route_optimizer.py
-│   ├── train.py
-│   └── metrics.json
-├── notebooks/
-│   └── 01_eda.ipynb
-├── tests/
-│   ├── test_api.py
-│   └── test_route_optimizer.py
-├── Screenshot/
-├── requirements.txt
-├── vercel.json
-└── README.md
+api/                 # FastAPI backend
+ dashboard/           # Streamlit UI
+model/               # ETA training + route optimization
+data/                # preprocessing/statistics
+notebooks/            # EDA
+tests/               # API + optimizer tests
+requirements.txt
+vercel.json
+README.md
 ```
 
-## Dataset
+## 📦 Dataset
 
-The project uses the **NYC Yellow Taxi Trip Dataset** for realistic geospatial and temporal delivery-style features. The large raw dataset is intentionally not committed to GitHub.
+The project uses NYC Yellow Taxi data for realistic geographic and temporal features. Large raw datasets are intentionally not committed.
 
-Download the dataset from the Kaggle source referenced in the project documentation, then run the preprocessing pipeline to create the local processed dataset.
+## 🧪 Testing & CI
 
-## Reproducibility
+The repository includes automated tests and CI for compilation, pytest and lint checks.
 
-```bash
-# 1. Create environment
-python -m venv .venv
+## ⚠️ Limitations
 
-# 2. Activate it
-# Windows
-.venv\\Scripts\\activate
-# macOS/Linux
-source .venv/bin/activate
+- Haversine distance is not road-network distance.
+- Traffic uses a configurable factor rather than live traffic.
+- CVRP uses a time-limited heuristic solver.
+- Live re-routing and explicit delivery time windows are not yet implemented.
 
-# 3. Install pinned dependencies
-pip install -r requirements.txt
+## 🗺️ Roadmap
 
-# 4. Run tests
-pytest -q
-
-# 5. Train ETA model after preparing the dataset
-python model/train.py --subset 100000
-
-# 6. Run API
-uvicorn api.main:app --reload --port 8000
-
-# 7. Run dashboard in another terminal
-streamlit run dashboard/app.py
-```
-
-## Testing & CI
-
-The GitHub Actions workflow now performs:
-
-- Python compilation checks
-- Automated pytest suite
-- Critical flake8 checks
-- Dependency installation from pinned versions
-
-Tests cover routing behavior, capacity validation, invalid inputs, API health, and prediction validation.
-
-## Results & Benchmarking
-
-Optimization performance is **input-dependent**. The dashboard calculates baseline distance, optimized distance, saved distance, and percentage improvement for each run.
-
-Do not interpret a single randomized run as a universal 30–40% improvement. For a defensible benchmark, run the same dataset/scenario across multiple seeds and report mean, median, and variance.
-
-Recommended benchmark table:
-
-| Metric | Baseline | Optimized | Improvement |
-|---|---:|---:|---:|
-| Route distance (km) | Runtime | Runtime | Runtime |
-| Delivery duration (min) | Runtime | Runtime | Runtime |
-| Vehicle utilization (%) | Runtime | Runtime | Runtime |
-
-## Limitations
-
-- Haversine distance is a geographic approximation; it does not always represent real road distance.
-- Traffic is represented by a configurable factor rather than a live traffic feed.
-- The CVRP solver uses a time-limited heuristic search and may not find the global optimum.
-- ETA accuracy depends on the quality and temporal coverage of the training data.
-- Live dynamic re-routing and explicit time-window constraints are not yet implemented.
-
-## Roadmap
-
-- [ ] OSRM/road-network distance as the primary routing matrix
-- [ ] VRPTW with delivery time windows
+- [ ] OSRM/road-network distances
+- [ ] Vehicle Routing Problem with Time Windows
 - [ ] Live traffic integration
-- [ ] Dynamic stop insertion and re-routing
+- [ ] Dynamic re-routing
 - [ ] Multi-depot optimization
-- [ ] More rigorous rolling/temporal model validation
-- [ ] Production deployment with monitoring and model versioning
+- [ ] Rolling temporal model validation
+- [ ] Production monitoring/model versioning
 
-## Why this project matters
+## 👨‍💻 Author
 
-This project demonstrates practical skills across:
-
-**Python · Pandas · Scikit-learn · XGBoost · Google OR-Tools · FastAPI · Streamlit · Folium · Geospatial Analytics · Operations Research · Machine Learning · CI/CD**
-
----
-
-Made with ❤️ by **Piyush Ramteke**
+**Piyush Ramteke** — Data Scientist | AI Engineer | Python Developer
