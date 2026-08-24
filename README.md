@@ -53,7 +53,7 @@ The solver minimizes route distance while enforcing:
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
+# Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q
@@ -85,7 +85,7 @@ api/                 # FastAPI backend
 model/               # ETA training + route optimization
 data/                # preprocessing/statistics
 notebooks/            # EDA
-tests/               # API + optimizer tests
+tests/                # API + optimizer tests
 requirements.txt
 vercel.json
 README.md
@@ -94,10 +94,6 @@ README.md
 ## 📦 Dataset
 
 The project uses NYC Yellow Taxi data for realistic geographic and temporal features. Large raw datasets are intentionally not committed.
-
-## 🧪 Testing & CI
-
-The repository includes automated tests and CI for compilation, pytest and lint checks.
 
 ## ⚠️ Limitations
 
