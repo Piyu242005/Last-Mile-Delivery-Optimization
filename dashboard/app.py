@@ -11,12 +11,13 @@ from streamlit_folium import st_folium
 
 ROOT = Path(__file__).parent.parent
 STATS_PATH = ROOT / "data" / "dataset_stats.json"
+ICON_DIR = ROOT / "Assets" / "PIYU_APP_ICONS_PNG"
 API_URL = os.getenv("API_URL", "").rstrip("/")
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 
 st.set_page_config(
     page_title="Last Mile Delivery Optimizer",
-    page_icon="🚚",
+    page_icon=str(ICON_DIR / "PIYU-AppIcon-180x180.png"),
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -66,7 +67,8 @@ def check_api():
 
 stats = load_stats()
 
-st.title("🚚 Last Mile Delivery Optimization")
+st.image(str(ICON_DIR / "PIYU-icon-black_512x512.png"), width=80)
+st.title("Last Mile Delivery Optimization")
 st.caption("ML-powered ETA prediction + capacitated vehicle routing")
 
 st.sidebar.subheader("Backend Configuration")
