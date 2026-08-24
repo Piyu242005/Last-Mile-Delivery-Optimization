@@ -12,6 +12,11 @@ from streamlit_folium import st_folium
 ROOT = Path(__file__).parent.parent
 STATS_PATH = ROOT / "data" / "dataset_stats.json"
 API_URL = os.getenv("API_URL", "").rstrip("/")
+if not API_URL:
+    try:
+        API_URL = st.secrets.get("API_URL", "").rstrip("/")
+    except Exception:
+        API_URL = ""
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 
 st.set_page_config(page_title="Last Mile Delivery Optimization", page_icon="🚚", layout="wide", initial_sidebar_state="expanded")
