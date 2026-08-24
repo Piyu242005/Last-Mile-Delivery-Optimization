@@ -64,12 +64,24 @@ def check_api():
         return False, {"error": str(exc)}
 
 
+def route_rows(route_data):
+    return [
+        {
+            "Vehicle": route["vehicle_id"] + 1,
+            "Stops": max(0, len(route["stops"]) - 2),
+            "Distance (km)": route["distance_km"],
+            "Load": route["load"],
+        }
+        for route in route_data.get("routes", [])
+    ]
+
+
 stats = load_stats()
 
 st.title("🚚 Last Mile Delivery Optimization")
-st.caption("ML-powered ETA prediction + capacitated vehicle routing")
+st.caption("ML-powered ETA prediction • Capacitated Vehicle Routing • Road-network visualization")
 
-st.sidebar.subheader("Backend Configuration")
+st.sidebar.subheader("⚙️ System")
 if not API_URL:
     st.sidebar.error("API_URL is not configured")
     st.sidebar.caption("Set API_URL in Streamlit Cloud → Settings → Secrets.")
@@ -82,22 +94,41 @@ if st.sidebar.button("🔄 Refresh API Status"):
 
 api_ok, api_health = check_api()
 if api_ok:
-    st.sidebar.success("API connected")
+    st.sidebar.success("Backend connected")
 else:
-    st.warning("Backend API is unavailable. Configure API_URL and make sure the FastAPI service is deployed.")
+    st.warning("Backend API is unavailable. Configure API_URL and deploy the FastAPI service.")
     if api_health.get("error"):
         st.caption(f"Backend check: {api_health['error']}")
 
+if api_ok:
+    st.sidebar.info(f"ETA model: {'Loaded' if api_health.get('eta_model_loaded') else 'Fallback mode'}")
 
-tab1, tab2, tab3 = st.tabs(["🗺️ Route Optimizer", "📊 Evaluation Metrics", "🤖 Time Predictor"])
+# Portfolio-friendly top-level navigation.
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🗺️ Route Optimizer",
+    "📊 Fleet Analytics",
+    "🤖 ETA Predictor",
+    "📥 Reports & Export",
+])
 
 with tab1:
     col_input, col_map = st.columns([1, 2])
     with col_input:
-        st.subheader("Vehicle Configuration")
-        num_vehicles = st.number_input("Number of Vehicles", min_value=1, max_value=10, value=2)
-        vehicle_cap = st.number_input("Vehicle Capacity (units)", min_value=5, max_value=100, value=20)
-        traffic_condition = st.selectbox("Traffic Condition", ["Clear (1.0x delay)", "Moderate (1.3x delay)", "Heavy (1.8x delay)"])
+        st.subheader("Fleet Configuration")
+        preset = st.selectbox("Scenario Preset", ["Custom", "Small Fleet", "Busy Day", "High Traffic"])
+        preset_values = {
+            "Small Fleet": (2, 20, "Clear (1.0x delay)"),
+            "Busy Day": (4, 25, "Moderate (1.3x delay)"),
+            "High Traffic": (5, 30, "Heavy (1.8x delay)"),
+        }
+        default_vehicles, default_capacity, default_traffic = preset_values.get(preset, (2, 20, "Clear (1.0x delay)"))
+        num_vehicles = st.number_input("Number of Vehicles", min_value=1, max_value=10, value=default_vehicles)
+        vehicle_cap = st.number_input("Vehicle Capacity (units)", min_value=5, max_value=100, value=default_capacity)
+        traffic_condition = st.selectbox(
+            "Traffic Condition",
+            ["Clear (1.0x delay)", "Moderate (1.3x delay)", "Heavy (1.8x delay)"],
+            index=["Clear (1.0x delay)", "Moderate (1.3x delay)", "Heavy (1.8x delay)"].index(default_traffic),
+        )
         tf_dict = {"Clear (1.0x delay)": 1.0, "Moderate (1.3x delay)": 1.3, "Heavy (1.8x delay)": 1.8}
 
         st.subheader("Locations & Demand")
@@ -114,7 +145,7 @@ with tab1:
             st.session_state.dyn_stops += f"\n{new_lat},{new_lon},{new_demand}"
             st.rerun()
 
-        if st.button("Optimize Fleet Route", type="primary", disabled=not api_ok):
+        if st.button("🚀 Optimize Fleet Route", type="primary", disabled=not api_ok, use_container_width=True):
             try:
                 d_lat, d_lon = map(float, depot_input.split(","))
                 stops = []
@@ -126,6 +157,10 @@ with tab1:
                             raise ValueError("Each stop needs latitude and longitude.")
                         stops.append({"lat": float(parts[0]), "lon": float(parts[1])})
                         demands.append(int(parts[2]) if len(parts) > 2 else 1)
+
+                if sum(demands) > num_vehicles * vehicle_cap:
+                    raise ValueError("Total demand exceeds fleet capacity. Increase vehicles/capacity.")
+
                 payload = {
                     "depot": {"lat": d_lat, "lon": d_lon},
                     "stops": stops,
@@ -134,11 +169,17 @@ with tab1:
                     "demands": demands,
                     "traffic_factor": tf_dict[traffic_condition],
                 }
-                with st.spinner("Optimizing fleet route..."):
+                with st.spinner("Optimizing fleet with OR-Tools..."):
                     response = requests.post(f"{API_URL}/optimize-route", json=payload, timeout=25)
                 response.raise_for_status()
                 st.session_state.route_data = response.json()
                 st.session_state.depot_coords = [d_lat, d_lon]
+                st.session_state.optimization_config = {
+                    "vehicles": num_vehicles,
+                    "capacity": vehicle_cap,
+                    "traffic": traffic_condition,
+                    "orders": len(stops),
+                }
                 st.success("Route optimized successfully.")
             except (ValueError, requests.RequestException) as exc:
                 st.error(f"Optimization failed: {exc}")
@@ -155,29 +196,55 @@ with tab1:
             osrm_routes = get_osrm_routes(tuple(tuple(tuple(p) for p in route) for route in all_pts))
             for i, route in enumerate(data["routes"]):
                 color = colors[i % len(colors)]
-                folium.PolyLine(osrm_routes[i], color=color, weight=5, opacity=0.8, tooltip=f"Vehicle {route['vehicle_id']}").add_to(m)
+                folium.PolyLine(osrm_routes[i], color=color, weight=5, opacity=0.8, tooltip=f"Vehicle {route['vehicle_id'] + 1}").add_to(m)
                 for stop in route["stops"]:
                     if stop["node"] != 0:
-                        folium.Marker([stop["lat"], stop["lon"]], popup=stop["label"], icon=folium.Icon(color=color, icon="shopping-cart", prefix="fa")).add_to(m)
+                        folium.Marker(
+                            [stop["lat"], stop["lon"]],
+                            popup=stop["label"],
+                            icon=folium.Icon(color=color, icon="shopping-cart", prefix="fa"),
+                        ).add_to(m)
             st_folium(m, width=800, height=600)
         else:
             st.info("Configure your fleet and click Optimize Fleet Route.")
 
 with tab2:
-    st.header("Logistics Performance Metrics")
+    st.header("📊 Fleet Analytics")
     data = st.session_state.get("route_data")
     if data and data.get("routes"):
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Baseline", f"{data['baseline_distance_km']} km")
-        c2.metric("Optimized", f"{data['total_distance_km']} km", delta=f"-{data['saved_distance_km']} km")
-        c3.metric("Improvement", f"{data['efficiency_improvement_pct']}%")
-        rows = [{"Vehicle ID": route["vehicle_id"], "Stops Visited": len(route["stops"]) - 2, "Distance (km)": route["distance_km"], "Cargo Load": route["load"]} for route in data["routes"]]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        total = data["total_distance_km"]
+        baseline = data["baseline_distance_km"]
+        saved = data["saved_distance_km"]
+        improvement = data["efficiency_improvement_pct"]
+        total_load = sum(route["load"] for route in data["routes"])
+        total_capacity = sum(st.session_state.get("optimization_config", {}).get("capacity", 20) for _ in data["routes"])
+        utilization = round(total_load / total_capacity * 100, 1) if total_capacity else 0
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Optimized Distance", f"{total:.2f} km")
+        c2.metric("Distance Saved", f"{saved:.2f} km")
+        c3.metric("Efficiency Gain", f"{improvement:.2f}%")
+        c4.metric("Fleet Utilization", f"{utilization}%")
+
+        st.markdown("### Vehicle Performance")
+        df = pd.DataFrame(route_rows(data))
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        chart_col1, chart_col2 = st.columns(2)
+        with chart_col1:
+            st.markdown("**Distance by Vehicle**")
+            st.bar_chart(df.set_index("Vehicle")["Distance (km)"])
+        with chart_col2:
+            st.markdown("**Load by Vehicle**")
+            st.bar_chart(df.set_index("Vehicle")["Load"])
+
+        st.markdown("### Baseline vs Optimized")
+        st.bar_chart(pd.DataFrame({"Distance (km)": [baseline, total]}, index=["Nearest Neighbor", "OR-Tools"]))
     else:
-        st.info("Run an optimization to view metrics.")
+        st.info("Run an optimization first to unlock fleet analytics.")
 
 with tab3:
-    st.header("Delivery Time Predictor")
+    st.header("🤖 Delivery Time Predictor")
     c1, c2 = st.columns(2)
     with c1:
         dist = st.number_input("Trip Distance (miles)", min_value=0.1, value=2.5)
@@ -191,12 +258,54 @@ with tab3:
         speed = speed_map[traffic]
 
     if st.button("Predict Duration", type="primary", disabled=not api_ok):
-        payload = {"trip_distance": dist, "haversine_km": hav_km, "hour_of_day": hour, "day_of_week": days.index(day), "is_weekend": int(days.index(day) >= 5), "speed_mph": speed}
+        payload = {
+            "trip_distance": dist,
+            "haversine_km": hav_km,
+            "hour_of_day": hour,
+            "day_of_week": days.index(day),
+            "is_weekend": int(days.index(day) >= 5),
+            "speed_mph": speed,
+        }
         try:
             with st.spinner("Predicting ETA..."):
                 response = requests.post(f"{API_URL}/predict", json=payload, timeout=10)
             response.raise_for_status()
             result = response.json()
             st.success(f"### ⏱️ ETA: **{result['predicted_duration_mins']} mins**")
+            st.caption(f"Prediction engine: `{result.get('model_used', 'unknown')}`")
         except requests.RequestException as exc:
             st.error(f"Prediction failed: {exc}")
+
+with tab4:
+    st.header("📥 Reports & Export")
+    data = st.session_state.get("route_data")
+    if data and data.get("routes"):
+        config = st.session_state.get("optimization_config", {})
+        summary = {
+            "optimized_distance_km": data["total_distance_km"],
+            "baseline_distance_km": data["baseline_distance_km"],
+            "saved_distance_km": data["saved_distance_km"],
+            "efficiency_improvement_pct": data["efficiency_improvement_pct"],
+            "vehicles_used": len(data["routes"]),
+            "orders": config.get("orders", 0),
+            "vehicle_capacity": config.get("capacity", 0),
+            "traffic_condition": config.get("traffic", "Unknown"),
+        }
+        st.json(summary)
+        routes_df = pd.DataFrame(route_rows(data))
+        st.download_button(
+            "⬇️ Download Fleet CSV",
+            routes_df.to_csv(index=False).encode("utf-8"),
+            file_name="fleet_route_report.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+        st.download_button(
+            "⬇️ Download Optimization JSON",
+            json.dumps({"summary": summary, "routes": data["routes"]}, indent=2).encode("utf-8"),
+            file_name="optimization_report.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+    else:
+        st.info("Run an optimization to generate downloadable reports.")
