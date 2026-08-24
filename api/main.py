@@ -5,13 +5,21 @@ from typing import List, Optional
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
 from model.route_optimizer import solve_vrp
 
-app = FastAPI(title="Last Mile Delivery Optimization API", version="1.1.0")
-MODEL_PATH = Path(__file__).parent.parent / "model" / "best_model.pkl"
+app = FastAPI(title="Last Mile Delivery Optimization API", version="2.0.0", description="Fleet routing and ML ETA decision-support API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
+MODEL_PATH = Path(__file__).parent.parent / "model" / "best_model.pkl"
 try:
     eta_model = joblib.load(MODEL_PATH) if MODEL_PATH.exists() else None
     MODEL_LOAD_ERROR = None
@@ -27,7 +35,7 @@ class Coordinates(BaseModel):
 
 class RouteRequest(BaseModel):
     depot: Coordinates
-    stops: List[Coordinates] = Field(min_length=1)
+    stops: List[Coordinates] = Field(min_length=1, max_length=200)
     num_vehicles: int = Field(default=1, ge=1, le=100)
     demands: Optional[List[int]] = None
     vehicle_capacities: Optional[List[int]] = None
@@ -35,26 +43,38 @@ class RouteRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_lengths(self):
-        if self.demands is not None and len(self.demands) != len(self.stops) + 1:
-            raise ValueError("demands must contain depot demand plus one demand per stop")
-        if self.vehicle_capacities is not None and len(self.vehicle_capacities) != self.num_vehicles:
-            raise ValueError("vehicle_capacities must contain one value per vehicle")
+        if self.demands is not None:
+            if len(self.demands) != len(self.stops) + 1:
+                raise ValueError("demands must contain depot demand plus one demand per stop")
+            if any(d < 0 for d in self.demands):
+                raise ValueError("demands cannot be negative")
+        if self.vehicle_capacities is not None:
+            if len(self.vehicle_capacities) != self.num_vehicles:
+                raise ValueError("vehicle_capacities must contain one value per vehicle")
+            if any(c <= 0 for c in self.vehicle_capacities):
+                raise ValueError("vehicle capacities must be positive")
         return self
 
 
 class PredictRequest(BaseModel):
-    trip_distance: float = Field(gt=0)
-    haversine_km: float = Field(gt=0)
+    trip_distance: float = Field(gt=0, le=10000)
+    haversine_km: float = Field(gt=0, le=10000)
     hour_of_day: int = Field(ge=0, le=23)
     day_of_week: int = Field(ge=0, le=6)
     is_weekend: int = Field(ge=0, le=1)
-    speed_mph: float = Field(gt=0)
+    speed_mph: float = Field(gt=0, le=150)
+
+
+@app.get("/")
+def root():
+    return {"service": "Last Mile Delivery Optimization API", "version": "2.0.0", "docs": "/docs", "status": "online"}
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
+        "service": "last-mile-delivery-optimization",
         "eta_model_loaded": eta_model is not None,
         "model_load_error": MODEL_LOAD_ERROR,
     }
@@ -92,5 +112,7 @@ def predict_duration(req: PredictRequest):
 
     base_time = (req.trip_distance / req.speed_mph) * 60
     traffic_modifier = 1.0 + (math.sin(req.hour_of_day / 24 * math.pi) * 0.5)
-    total_mins = round(base_time * traffic_modifier, 2)
-    return {"predicted_duration_mins": total_mins, "model_used": "analytical_fallback"}
+    return {
+        "predicted_duration_mins": round(base_time * traffic_modifier, 2),
+        "model_used": "analytical_fallback",
+    }
