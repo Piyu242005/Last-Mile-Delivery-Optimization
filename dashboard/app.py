@@ -1,10 +1,8 @@
-import asyncio
 import json
 import os
 import random
 from pathlib import Path
 
-import aiohttp
 import pandas as pd
 import requests
 import streamlit as st
@@ -46,33 +44,8 @@ def get_osrm_route(coords):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_osrm_routes(routes_coords):
-    """Fetch and cache all vehicle road geometries."""
-    async def _fetch_all():
-        async with aiohttp.ClientSession() as session:
-            async def fetch(coords):
-                try:
-                    coord_str = ";".join(f"{lon},{lat}" for lat, lon in coords)
-                    async with session.get(
-                        f"{OSRM_URL}/{coord_str}",
-                        params={"overview": "full", "geometries": "geojson"},
-                        headers={"User-Agent": "LastMileOptimization/1.0"},
-                        timeout=aiohttp.ClientTimeout(total=8),
-                    ) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            routes = data.get("routes", [])
-                            if routes:
-                                return [[lat, lon] for lon, lat in routes[0]["geometry"]["coordinates"]]
-                except Exception:
-                    pass
-                return coords
-
-            return await asyncio.gather(*(fetch(coords) for coords in routes_coords))
-
-    try:
-        return asyncio.run(_fetch_all())
-    except Exception:
-        return list(routes_coords)
+    """Fetch vehicle road geometries synchronously and cache them."""
+    return [get_osrm_route(coords) for coords in routes_coords]
 
 
 @st.cache_data(show_spinner=False)
@@ -97,10 +70,14 @@ stats = load_stats()
 st.title("🚚 Last Mile Delivery Optimization")
 st.caption("ML-powered ETA prediction + capacitated vehicle routing")
 
-# Do not block the whole application on a backend health check.
+# Cached health check prevents repeated API calls during Streamlit reruns.
 api_ok, api_health = check_api()
 if not api_ok:
     st.warning("Optimization API is currently unavailable. The dashboard is ready; start the API and try again.")
+
+if st.button("🔄 Refresh API Status", key="refresh_api_status"):
+    check_api.clear()
+    st.rerun()
 
 
 tab1, tab2, tab3 = st.tabs(["🗺️ Route Optimizer", "📊 Evaluation Metrics", "🤖 Time Predictor"])
@@ -126,8 +103,7 @@ with tab1:
         default_stops = "40.748,-73.985,5\n40.761,-73.978,7\n40.732,-73.996,4\n40.739,-73.988,6\n40.755,-73.973,8\n40.765,-73.982,3"
         if "dyn_stops" not in st.session_state:
             st.session_state.dyn_stops = default_stops
-        stops_input = st.text_area("Stops (Lat, Lon, Demand)", st.session_state.dyn_stops, height=180)
-        st.session_state.dyn_stops = stops_input
+        st.text_area("Stops (Lat, Lon, Demand)", height=180, key="dyn_stops")
 
         if st.button("🌟 Add Live Order"):
             new_lat = round(random.uniform(40.730, 40.770), 4)
@@ -180,8 +156,7 @@ with tab1:
                 [[s["lat"], s["lon"]] for s in route["stops"]]
                 for route in data["routes"]
             ]
-            with st.spinner("Loading road geometry..."):
-                osrm_routes = get_osrm_routes(tuple(tuple(tuple(p) for p in route) for route in all_pts))
+            osrm_routes = get_osrm_routes(tuple(tuple(tuple(p) for p in route) for route in all_pts))
 
             for i, route in enumerate(data["routes"]):
                 color = colors[i % len(colors)]
@@ -197,7 +172,7 @@ with tab1:
                         folium.Marker(
                             [stop["lat"], stop["lon"]],
                             popup=stop["label"],
-                            icon=folium.Icon(color=color, icon="shopping-cart"),
+                            icon=folium.Icon(color=color, icon="shopping-cart", prefix="fa"),
                         ).add_to(m)
             st_folium(m, width=800, height=600)
         else:
