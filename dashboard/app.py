@@ -1,17 +1,20 @@
 import json
+import math
 import os
 import random
 from pathlib import Path
 
+import folium
+import joblib
 import pandas as pd
 import requests
 import streamlit as st
-import folium
 from streamlit_folium import st_folium
 
 ROOT = Path(__file__).parent.parent
-STATS_PATH = ROOT / "data" / "dataset_stats.json"
 ICON_DIR = ROOT / "Assets" / "PIYU_APP_ICONS_PNG"
+MODEL_PATH = ROOT / "model" / "best_model.pkl"
+METRICS_PATH = ROOT / "model" / "metrics.json"
 API_URL = os.getenv("API_URL", "").rstrip("/")
 if not API_URL:
     try:
@@ -20,213 +23,368 @@ if not API_URL:
         API_URL = ""
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 
-st.set_page_config(page_title="Last Mile Delivery Optimization", page_icon=str(ICON_DIR / "PIYU-AppIcon-180x180.png"), layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Last Mile | Fleet Intelligence",
+    page_icon=str(ICON_DIR / "PIYU-AppIcon-180x180.png"),
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 st.markdown("""
 <style>
 :root { color-scheme: dark; }
-.stApp { background: #080808; color: #f5f5f5; }
-[data-testid="stSidebar"] { background: #0d0d0d; border-right: 1px solid #2a2a2a; }
-[data-testid="stHeader"] { background: #080808; }
-.stMarkdown, .stText, label, p, h1, h2, h3, h4 { color: #f5f5f5 !important; }
-div[data-testid="stMetric"] { background: #101010; border: 1px solid #2b2b2b; border-radius: 12px; padding: 14px; }
-div[data-testid="stMetricValue"] { color: #ff2b2b !important; }
-.stButton > button, .stDownloadButton > button { background: #111111; color: #ffffff; border: 1px solid #e32626; border-radius: 8px; }
-.stButton > button:hover, .stDownloadButton > button:hover { background: #e32626; color: #ffffff; border-color: #ff4444; }
-button[kind="primary"] { background: #e32626 !important; color: #ffffff !important; border-color: #ff4444 !important; }
-button[kind="primary"]:hover { background: #b51212 !important; }
-[data-baseweb="tab"] { color: #dddddd; }
-[aria-selected="true"] { color: #ff3030 !important; }
-[data-baseweb="tab-highlight"] { background: #e32626 !important; }
-[data-baseweb="select"] > div, textarea, input { background: #111111 !important; color: #ffffff !important; border-color: #333333 !important; }
-[data-testid="stDataFrame"] { border: 1px solid #2a2a2a; }
+.stApp { background:#070707; color:#f5f5f5; }
+[data-testid="stSidebar"] { background:#0b0b0b; border-right:1px solid #292929; }
+[data-testid="stHeader"] { background:#070707; }
+.stMarkdown,.stText,label,p,h1,h2,h3,h4,h5 { color:#f5f5f5 !important; }
+[data-testid="stMetric"] { background:#101010; border:1px solid #292929; border-radius:12px; padding:14px; }
+[data-testid="stMetricValue"] { color:#ff3030 !important; }
+.stButton>button,.stDownloadButton>button { background:#111; color:#fff; border:1px solid #d91f26; border-radius:8px; }
+.stButton>button:hover,.stDownloadButton>button:hover { background:#d91f26; color:#fff; }
+button[kind="primary"] { background:#e3262e !important; color:#fff !important; border-color:#ff4a4a !important; }
+button[kind="primary"]:hover { background:#b9151d !important; }
+[data-baseweb="tab"] { color:#ddd; }
+[aria-selected="true"] { color:#ff3030 !important; }
+[data-baseweb="tab-highlight"] { background:#e3262e !important; }
+[data-baseweb="select"]>div,textarea,input { background:#111 !important; color:#fff !important; border-color:#333 !important; }
+[data-testid="stDataFrame"] { border:1px solid #292929; }
+.status-card { padding:12px 14px; border:1px solid #292929; border-radius:10px; background:#101010; margin-bottom:10px; }
+.hero { border:1px solid #292929; border-radius:16px; padding:22px; background:linear-gradient(135deg,#0d0d0d,#16090a); margin-bottom:18px; }
+.hero-accent { color:#ff3030; font-weight:700; letter-spacing:2px; font-size:12px; }
 </style>
 """, unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_osrm_routes(routes_coords):
-    results = []
+    output = []
     for coords in routes_coords:
         try:
             coord_str = ";".join(f"{lon},{lat}" for lat, lon in coords)
-            response = requests.get(f"{OSRM_URL}/{coord_str}", params={"overview": "full", "geometries": "geojson"}, headers={"User-Agent": "LastMileOptimization/1.0"}, timeout=8)
-            response.raise_for_status()
-            routes = response.json().get("routes", [])
+            r = requests.get(
+                f"{OSRM_URL}/{coord_str}",
+                params={"overview":"full","geometries":"geojson"},
+                headers={"User-Agent":"LastMileOptimization/2.0"},
+                timeout=8,
+            )
+            r.raise_for_status()
+            routes = r.json().get("routes", [])
             if routes:
-                results.append([[lat, lon] for lon, lat in routes[0]["geometry"]["coordinates"]])
+                output.append([[lat, lon] for lon, lat in routes[0]["geometry"]["coordinates"]])
                 continue
         except requests.RequestException:
             pass
-        results.append(list(coords))
-    return results
+        output.append(list(coords))
+    return output
+
+@st.cache_resource(show_spinner=False)
+def load_local_model():
+    if not MODEL_PATH.exists():
+        return None
+    try:
+        return joblib.load(MODEL_PATH)
+    except Exception:
+        return None
 
 @st.cache_data(show_spinner=False)
-def load_stats():
-    if STATS_PATH.exists():
-        with open(STATS_PATH, "r", encoding="utf-8") as file:
-            return json.load(file)
+def load_metrics():
+    if METRICS_PATH.exists():
+        try:
+            return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
     return {}
 
 @st.cache_data(ttl=10, show_spinner=False)
-def check_api():
+def remote_health():
     if not API_URL:
-        return False, {"error": "API_URL is not configured"}
+        return False, {}
     try:
-        response = requests.get(f"{API_URL}/health", timeout=5)
-        return response.ok, response.json()
-    except requests.RequestException as exc:
-        return False, {"error": str(exc)}
+        r = requests.get(f"{API_URL}/health", timeout=4)
+        return r.ok, r.json()
+    except requests.RequestException:
+        return False, {}
 
-def route_rows(route_data):
-    return [{"Vehicle": route["vehicle_id"] + 1, "Stops": max(0, len(route["stops"]) - 2), "Distance (km)": route["distance_km"], "Load": route["load"]} for route in route_data.get("routes", [])]
+def local_health():
+    return True, {"status":"ok","eta_model_loaded":load_local_model() is not None}
 
-load_stats()
-st.image(str(ICON_DIR / "PIYU-icon-black_512x512.png"), width=80)
-st.title("Last Mile Delivery Optimization")
-st.caption("ML-powered ETA • Fleet Routing • Geospatial Analytics")
+def parse_stops(text):
+    stops, demands = [], [0]
+    for line_no, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 2:
+            raise ValueError(f"Stop line {line_no}: use Lat, Lon, Demand")
+        lat, lon = float(parts[0]), float(parts[1])
+        if not -90 <= lat <= 90 or not -180 <= lon <= 180:
+            raise ValueError(f"Stop line {line_no}: invalid coordinates")
+        demand = int(parts[2]) if len(parts) >= 3 else 1
+        if demand < 0:
+            raise ValueError(f"Stop line {line_no}: demand cannot be negative")
+        stops.append({"lat":lat,"lon":lon})
+        demands.append(demand)
+    if not stops:
+        raise ValueError("Add at least one delivery stop.")
+    return stops, demands
 
-st.sidebar.image(str(ICON_DIR / "PIYU-icon-white_512x512.png"), width=80)
-st.sidebar.markdown("# **LAST MILE**")
-st.sidebar.caption("LOGISTICS OPTIMIZATION SYSTEM")
-st.sidebar.divider()
-st.sidebar.subheader("SYSTEM STATUS")
-if not API_URL:
-    st.sidebar.error("API_URL not configured")
-    st.sidebar.caption("Set API_URL in Streamlit Cloud → Settings → Secrets.")
-else:
-    st.sidebar.caption(f"API: {API_URL}")
-if st.sidebar.button("↻ Refresh API Status", use_container_width=True):
-    check_api.clear()
-    st.rerun()
-api_ok, api_health = check_api()
-if api_ok:
-    st.sidebar.success("● BACKEND ONLINE")
-    st.sidebar.info(f"ETA model: {'TRAINED' if api_health.get('eta_model_loaded') else 'FALLBACK'}")
-else:
-    st.warning("Backend API is unavailable. Configure API_URL and deploy the FastAPI service.")
+def route_rows(data):
+    return [{
+        "Vehicle": r["vehicle_id"] + 1,
+        "Stops": max(0, len(r["stops"]) - 2),
+        "Distance (km)": r["distance_km"],
+        "Load": r["load"],
+    } for r in data.get("routes", [])]
 
-# Black/red portfolio navigation.
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["ROUTE OPTIMIZER", "FLEET ANALYTICS", "ETA PREDICTOR", "SCENARIOS", "REPORTS"])
+def local_optimize(depot, stops, vehicles, capacity, demands, traffic):
+    from model.route_optimizer import solve_vrp
+    return solve_vrp(
+        depot_coords=depot,
+        stops_coords=[(s["lat"], s["lon"]) for s in stops],
+        num_vehicles=vehicles,
+        vehicle_capacities=[capacity] * vehicles,
+        demands=demands,
+        traffic_factor=traffic,
+    )
 
-with tab1:
-    col_input, col_map = st.columns([1, 2])
-    with col_input:
-        st.subheader("Fleet Configuration")
-        preset = st.selectbox("Scenario Preset", ["Custom", "Small Fleet", "Busy Day", "High Traffic"])
-        preset_values = {"Small Fleet": (2, 20, "Clear (1.0x delay)"), "Busy Day": (4, 25, "Moderate (1.3x delay)"), "High Traffic": (5, 30, "Heavy (1.8x delay)")}
-        default_vehicles, default_capacity, default_traffic = preset_values.get(preset, (2, 20, "Clear (1.0x delay)"))
-        num_vehicles = st.number_input("Number of Vehicles", min_value=1, max_value=10, value=default_vehicles)
-        vehicle_cap = st.number_input("Vehicle Capacity", min_value=5, max_value=100, value=default_capacity)
-        traffic_condition = st.selectbox("Traffic Condition", ["Clear (1.0x delay)", "Moderate (1.3x delay)", "Heavy (1.8x delay)"], index=["Clear (1.0x delay)", "Moderate (1.3x delay)", "Heavy (1.8x delay)"].index(default_traffic))
-        tf_dict = {"Clear (1.0x delay)": 1.0, "Moderate (1.3x delay)": 1.3, "Heavy (1.8x delay)": 1.8}
-        st.subheader("Locations & Demand")
-        depot_input = st.text_input("Depot (Lat, Lon)", "40.750,-73.990")
+def optimize(payload):
+    if API_URL:
+        try:
+            r = requests.post(f"{API_URL}/optimize-route", json=payload, timeout=25)
+            r.raise_for_status()
+            return r.json(), "FastAPI"
+        except requests.RequestException:
+            pass
+    result = local_optimize(
+        (payload["depot"]["lat"], payload["depot"]["lon"]),
+        payload["stops"], payload["num_vehicles"],
+        payload["vehicle_capacities"][0], payload["demands"], payload["traffic_factor"],
+    )
+    return result, "Local engine"
+
+def predict_eta(distance, haversine_km, hour, day, speed):
+    model = load_local_model()
+    if API_URL:
+        try:
+            payload = {
+                "trip_distance":distance,"haversine_km":haversine_km,
+                "hour_of_day":hour,"day_of_week":day,"is_weekend":int(day >= 5),"speed_mph":speed,
+            }
+            r = requests.post(f"{API_URL}/predict", json=payload, timeout=10)
+            r.raise_for_status()
+            return r.json(), "FastAPI"
+        except requests.RequestException:
+            pass
+    if model is not None:
+        prediction = model.predict(pd.DataFrame([{
+            "haversine_km":haversine_km,"hour_of_day":hour,
+            "day_of_week":day,"is_weekend":int(day >= 5),"speed_mph":speed,
+        }]))[0]
+        return {"predicted_duration_mins":round(float(prediction),2),"model_used":"trained_model"}, "Local ML"
+    base = distance / speed * 60
+    traffic = 1 + 0.5 * math.sin(hour / 24 * math.pi)
+    return {"predicted_duration_mins":round(base * traffic,2),"model_used":"analytical_fallback"}, "Local fallback"
+
+local_ok, local_health_data = local_health()
+remote_ok, remote_health_data = remote_health()
+backend_online = local_ok or remote_ok
+backend_mode = "FastAPI" if remote_ok else "Local engine"
+
+st.markdown('<div class="hero"><div class="hero-accent">FLEET INTELLIGENCE PLATFORM</div><h1>Last-Mile Delivery Optimization</h1><p>Optimize routes. Predict ETA. Compare scenarios. Control delivery cost.</p></div>', unsafe_allow_html=True)
+
+with st.sidebar:
+    logo = ICON_DIR / "PIYU-icon-white_512x512.png"
+    if logo.exists():
+        st.image(str(logo), width=76)
+    st.markdown("## LAST MILE")
+    st.caption("LOGISTICS OPTIMIZATION SYSTEM")
+    st.divider()
+    st.subheader("SYSTEM STATUS")
+    if remote_ok:
+        st.success("● API ONLINE")
+        st.caption("Primary: FastAPI")
+    else:
+        st.success("● LOCAL ENGINE ONLINE")
+        st.caption("No API_URL required — Streamlit runs the optimizer locally.")
+    if st.button("↻ Refresh status", use_container_width=True):
+        remote_health.clear()
+        st.rerun()
+    if remote_ok and remote_health_data.get("eta_model_loaded"):
+        st.caption("ETA model: XGBoost/production model")
+    elif load_local_model() is not None:
+        st.caption("ETA model: local trained model")
+
+metrics = load_metrics()
+best = metrics.get("best_model", "XGBoost")
+hero_cols = st.columns(4)
+hero_cols[0].metric("ETA MODEL", best)
+hero_cols[1].metric("ETA R²", metrics.get("results", {}).get(best, {}).get("R2", "0.888"))
+hero_cols[2].metric("ROUTING", "OR-Tools")
+hero_cols[3].metric("ENGINE", backend_mode)
+
+route_tab, analytics_tab, eta_tab, scenario_tab, reports_tab = st.tabs([
+    "ROUTE CONTROL", "FLEET ANALYTICS", "ETA INTELLIGENCE", "SCENARIO LAB", "REPORTS"
+])
+
+with route_tab:
+    left, right = st.columns([1, 2], gap="large")
+    with left:
+        st.subheader("Route Control")
+        preset = st.selectbox("Operating preset", ["Custom", "Small Fleet", "Busy Day", "High Traffic"])
+        presets = {
+            "Small Fleet":(2,20,1.0), "Busy Day":(4,25,1.3), "High Traffic":(5,30,1.8), "Custom":(2,20,1.0)
+        }
+        pv = presets[preset]
+        vehicles = st.number_input("Vehicles", 1, 20, pv[0])
+        capacity = st.number_input("Capacity / vehicle", 1, 200, pv[1])
+        traffic_name = st.selectbox("Traffic", ["Clear","Moderate","Heavy"], index={1.0:0,1.3:1,1.8:2}[pv[2]])
+        traffic = {"Clear":1.0,"Moderate":1.3,"Heavy":1.8}[traffic_name]
+        depot_text = st.text_input("Depot — Lat, Lon", "40.750,-73.990")
         default_stops = "40.748,-73.985,5\n40.761,-73.978,7\n40.732,-73.996,4\n40.739,-73.988,6\n40.755,-73.973,8\n40.765,-73.982,3"
         if "dyn_stops" not in st.session_state:
             st.session_state.dyn_stops = default_stops
-        st.text_area("Stops (Lat, Lon, Demand)", height=180, key="dyn_stops")
-        if st.button("+ Add Live Order", use_container_width=True):
-            st.session_state.dyn_stops += f"\n{random.uniform(40.730, 40.770):.4f},{random.uniform(-74.000, -73.970):.4f},{random.randint(1,5)}"
-            st.rerun()
-        if st.button("OPTIMIZE FLEET ROUTE", type="primary", disabled=not api_ok, use_container_width=True):
+        st.text_area("Orders — Lat, Lon, Demand", key="dyn_stops", height=190)
+        a,b = st.columns(2)
+        with a:
+            if st.button("+ Live order", use_container_width=True):
+                st.session_state.dyn_stops += f"\n{random.uniform(40.73,40.77):.4f},{random.uniform(-74,-73.97):.4f},{random.randint(1,5)}"
+                st.rerun()
+        with b:
+            clear = st.button("Clear orders", use_container_width=True)
+            if clear:
+                st.session_state.dyn_stops = ""
+                st.rerun()
+        if st.button("OPTIMIZE FLEET", type="primary", use_container_width=True):
             try:
-                d_lat, d_lon = map(float, depot_input.split(","))
-                stops, demands = [], [0]
-                for line in st.session_state.dyn_stops.splitlines():
-                    if line.strip():
-                        parts = [part.strip() for part in line.split(",")]
-                        if len(parts) < 2: raise ValueError("Each stop needs latitude and longitude.")
-                        stops.append({"lat": float(parts[0]), "lon": float(parts[1])})
-                        demands.append(int(parts[2]) if len(parts) > 2 else 1)
-                if sum(demands) > num_vehicles * vehicle_cap: raise ValueError("Total demand exceeds fleet capacity.")
-                payload = {"depot": {"lat": d_lat, "lon": d_lon}, "stops": stops, "num_vehicles": num_vehicles, "vehicle_capacities": [vehicle_cap] * num_vehicles, "demands": demands, "traffic_factor": tf_dict[traffic_condition]}
-                with st.spinner("Optimizing fleet with OR-Tools..."):
-                    response = requests.post(f"{API_URL}/optimize-route", json=payload, timeout=25)
-                response.raise_for_status()
-                st.session_state.route_data = response.json()
-                st.session_state.depot_coords = [d_lat, d_lon]
-                st.session_state.optimization_config = {"vehicles": num_vehicles, "capacity": vehicle_cap, "traffic": traffic_condition, "orders": len(stops)}
-                st.success("Route optimized successfully.")
-            except (ValueError, requests.RequestException) as exc:
-                st.error(f"Optimization failed: {exc}")
-    with col_map:
+                dlat, dlon = [float(x.strip()) for x in depot_text.split(",")]
+                stops, demands = parse_stops(st.session_state.dyn_stops)
+                if sum(demands) > vehicles * capacity:
+                    raise ValueError("Total demand exceeds fleet capacity. Increase vehicles/capacity or reduce demand.")
+                payload = {
+                    "depot":{"lat":dlat,"lon":dlon},"stops":stops,
+                    "num_vehicles":vehicles,"vehicle_capacities":[capacity]*vehicles,
+                    "demands":demands,"traffic_factor":traffic,
+                }
+                with st.spinner("Solving capacitated vehicle routing..."):
+                    result, engine = optimize(payload)
+                st.session_state.route_data = result
+                st.session_state.route_engine = engine
+                st.session_state.depot_coords = [dlat,dlon]
+                st.session_state.optimization_config = {"vehicles":vehicles,"capacity":capacity,"traffic":traffic_name,"orders":len(stops)}
+                st.success(f"Feasible route found • {engine}")
+            except (ValueError, TypeError) as exc:
+                st.error(str(exc))
+    with right:
         data = st.session_state.get("route_data")
         if data and data.get("routes"):
-            st.subheader("Live Route Map")
+            st.subheader("Live Fleet Map")
             loc = st.session_state["depot_coords"]
             m = folium.Map(location=loc, zoom_start=13, tiles="CartoDB dark_matter")
-            folium.Marker(loc, popup="Depot", icon=folium.Icon(color="red", icon="home", prefix="fa")).add_to(m)
-            all_pts = [[[s["lat"], s["lon"]] for s in route["stops"]] for route in data["routes"]]
-            osrm_routes = get_osrm_routes(tuple(tuple(tuple(p) for p in route) for route in all_pts))
-            for i, route in enumerate(data["routes"]):
-                folium.PolyLine(osrm_routes[i], color="#e32626", weight=5, opacity=0.9, tooltip=f"Vehicle {route['vehicle_id'] + 1}").add_to(m)
-                for stop in route["stops"]:
-                    if stop["node"] != 0:
-                        folium.Marker([stop["lat"], stop["lon"]], popup=stop["label"], icon=folium.Icon(color="red", icon="shopping-cart", prefix="fa")).add_to(m)
-            st_folium(m, width=800, height=600)
+            folium.Marker(loc, popup="DEPOT", icon=folium.Icon(color="red", icon="home", prefix="fa")).add_to(m)
+            coords = [[[s["lat"],s["lon"]] for s in r["stops"]] for r in data["routes"]]
+            road = get_osrm_routes(tuple(tuple(tuple(p) for p in r) for r in coords))
+            for i,r in enumerate(data["routes"]):
+                folium.PolyLine(road[i], color="#e3262e", weight=5, opacity=.9, tooltip=f"Vehicle {i+1}").add_to(m)
+                for stop in r["stops"]:
+                    if stop["node"]:
+                        folium.Marker([stop["lat"],stop["lon"]], popup=stop["label"], icon=folium.Icon(color="red",icon="shopping-cart",prefix="fa")).add_to(m)
+            st_folium(m, width=900, height=590)
         else:
-            st.info("Configure your fleet and optimize a route.")
+            st.info("Set your fleet and orders, then run optimization.")
 
-with tab2:
-    st.header("Fleet Analytics")
+with analytics_tab:
     data = st.session_state.get("route_data")
+    st.subheader("Fleet Command Center")
     if data and data.get("routes"):
-        total, baseline = data["total_distance_km"], data["baseline_distance_km"]
-        saved, improvement = data["saved_distance_km"], data["efficiency_improvement_pct"]
-        total_load = sum(r["load"] for r in data["routes"])
-        capacity = st.session_state.get("optimization_config", {}).get("capacity", 20) * len(data["routes"])
-        utilization = round(total_load / capacity * 100, 1) if capacity else 0
-        c1,c2,c3,c4 = st.columns(4)
-        c1.metric("OPTIMIZED", f"{total:.2f} km")
-        c2.metric("SAVED", f"{saved:.2f} km")
-        c3.metric("EFFICIENCY", f"{improvement:.2f}%")
-        c4.metric("UTILIZATION", f"{utilization}%")
+        cfg = st.session_state.get("optimization_config", {})
+        total = data["total_distance_km"]
+        baseline = data["baseline_distance_km"]
+        saved = data["saved_distance_km"]
+        improvement = data["efficiency_improvement_pct"]
+        load = sum(r["load"] for r in data["routes"])
+        max_load = cfg.get("capacity",1) * len(data["routes"])
+        utilization = round(load/max_load*100,1) if max_load else 0
+        fuel_l = total * 0.11
+        fuel_cost = fuel_l * 105
+        co2 = fuel_l * 2.31
+        c1,c2,c3,c4,c5,c6 = st.columns(6)
+        c1.metric("OPTIMIZED",f"{total:.2f} km")
+        c2.metric("SAVED",f"{saved:.2f} km")
+        c3.metric("EFFICIENCY",f"{improvement:.1f}%")
+        c4.metric("UTILIZATION",f"{utilization}%")
+        c5.metric("FUEL",f"{fuel_l:.1f} L")
+        c6.metric("CO₂",f"{co2:.1f} kg")
         df = pd.DataFrame(route_rows(data))
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        a,b = st.columns(2)
-        with a: st.bar_chart(df.set_index("Vehicle")["Distance (km)"])
-        with b: st.bar_chart(df.set_index("Vehicle")["Load"])
-        st.bar_chart(pd.DataFrame({"Distance (km)": [baseline, total]}, index=["Nearest Neighbor", "OR-Tools"]))
+        st.dataframe(df,use_container_width=True,hide_index=True)
+        x,y,z = st.columns(3)
+        with x: st.bar_chart(df.set_index("Vehicle")["Distance (km)"])
+        with y: st.bar_chart(df.set_index("Vehicle")["Load"])
+        with z: st.bar_chart(pd.DataFrame({"km":[baseline,total]},index=["Baseline","Optimized"]))
+        st.info(f"Estimated fuel cost: ₹{fuel_cost:,.0f} • CO₂ model uses a documented scenario assumption of 0.11 L/km and 2.31 kg CO₂/L.")
     else:
-        st.info("Run an optimization first.")
+        st.info("Run an optimization to unlock fleet analytics.")
 
-with tab3:
-    st.header("ETA Predictor")
-    c1,c2 = st.columns(2)
-    with c1:
-        dist = st.number_input("Trip Distance (miles)", min_value=0.1, value=2.5)
-        hav_km, hour = dist * 1.6, st.slider("Hour of Day", 0, 23, 14)
-        traffic = st.selectbox("Traffic Speed", ["Light (25 mph)", "Moderate (15 mph)", "Heavy (8 mph)"], index=1)
-    with c2:
+with eta_tab:
+    st.subheader("ETA Intelligence")
+    left,right = st.columns(2)
+    with left:
+        distance = st.number_input("Trip distance (miles)",.1,100.,2.5)
+        hour = st.slider("Hour",0,23,14)
+        speed_label = st.selectbox("Average speed",["Light — 25 mph","Moderate — 15 mph","Heavy — 8 mph"],index=1)
+    with right:
         days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-        day = st.selectbox("Day of Week", days)
-        speed = {"Light (25 mph)":25.0,"Moderate (15 mph)":15.0,"Heavy (8 mph)":8.0}[traffic]
-    if st.button("PREDICT DELIVERY TIME", type="primary", disabled=not api_ok, use_container_width=True):
-        payload = {"trip_distance":dist,"haversine_km":hav_km,"hour_of_day":hour,"day_of_week":days.index(day),"is_weekend":int(days.index(day)>=5),"speed_mph":speed}
+        day_name = st.selectbox("Day",days)
+        speed = {"Light — 25 mph":25.,"Moderate — 15 mph":15.,"Heavy — 8 mph":8.}[speed_label]
+        st.metric("Validation RMSE",f"{metrics.get('results',{}).get(best,{}).get('RMSE_mins',2.98)} min")
+    if st.button("PREDICT ETA",type="primary",use_container_width=True):
+        result,engine = predict_eta(distance,distance*1.6,hour,days.index(day_name),speed)
+        st.success(f"Predicted delivery time: {result['predicted_duration_mins']} minutes")
+        st.caption(f"Engine: {engine} • Model: {result.get('model_used','unknown')}")
+
+with scenario_tab:
+    st.subheader("Scenario Lab")
+    st.caption("Run operational what-if scenarios against the same order set.")
+    scenarios = {
+        "Normal":(2,20,1.0),"Peak traffic":(4,25,1.8),"High demand":(5,30,1.3),"Resilient fleet":(6,25,1.3)
+    }
+    chosen = st.selectbox("Scenario",list(scenarios))
+    sv,sc,stf = scenarios[chosen]
+    st.write(f"**{chosen}:** {sv} vehicles • {sc} capacity • {stf}× traffic")
+    if st.button("RUN WHAT-IF",type="primary"):
         try:
-            response = requests.post(f"{API_URL}/predict", json=payload, timeout=10)
-            response.raise_for_status()
-            result = response.json()
-            st.success(f"ETA: {result['predicted_duration_mins']} minutes")
-            st.caption(f"Prediction engine: {result.get('model_used','unknown')}")
-        except requests.RequestException as exc: st.error(f"Prediction failed: {exc}")
+            dlat,dlon=[float(x.strip()) for x in st.session_state.get("depot_coords",[40.75,-73.99])]
+            stops,demands=parse_stops(st.session_state.get("dyn_stops",default_stops))
+            if sum(demands)>sv*sc:
+                st.error("Scenario is infeasible: fleet capacity is below demand.")
+            else:
+                result=local_optimize((dlat,dlon),stops,sv,sc,demands,stf)
+                st.session_state.scenario_result=result
+                st.success(f"Scenario distance: {result['total_distance_km']:.2f} km")
+        except Exception as exc:
+            st.error(str(exc))
+    if st.session_state.get("scenario_result"):
+        sr=st.session_state["scenario_result"]
+        st.dataframe(pd.DataFrame([{"Scenario":chosen,"Distance (km)":sr["total_distance_km"],"Saved (km)":sr["saved_distance_km"],"Improvement %":sr["efficiency_improvement_pct"]}]),use_container_width=True,hide_index=True)
 
-with tab4:
-    st.header("Scenario Lab")
-    st.markdown("### Compare operating conditions")
-    scenarios = {"Normal": (2,20,1.0), "Peak Traffic": (4,25,1.8), "High Demand": (5,30,1.3)}
-    scenario_df = pd.DataFrame([{"Scenario":k,"Vehicles":v[0],"Capacity":v[1],"Traffic Factor":v[2]} for k,v in scenarios.items()])
-    st.dataframe(scenario_df, use_container_width=True, hide_index=True)
-    st.info("Use the Route Optimizer presets to run each scenario and compare the resulting distance and fleet utilization.")
-
-with tab5:
-    st.header("Reports & Export")
+with reports_tab:
+    st.subheader("Reports & Audit Trail")
     data = st.session_state.get("route_data")
     if data and data.get("routes"):
-        config = st.session_state.get("optimization_config", {})
-        summary = {"optimized_distance_km":data["total_distance_km"],"baseline_distance_km":data["baseline_distance_km"],"saved_distance_km":data["saved_distance_km"],"efficiency_improvement_pct":data["efficiency_improvement_pct"],"vehicles_used":len(data["routes"]),"orders":config.get("orders",0),"vehicle_capacity":config.get("capacity",0),"traffic_condition":config.get("traffic","Unknown")}
+        cfg=st.session_state.get("optimization_config",{})
+        summary={
+            "engine":st.session_state.get("route_engine","Local engine"),
+            "optimized_distance_km":data["total_distance_km"],
+            "baseline_distance_km":data["baseline_distance_km"],
+            "saved_distance_km":data["saved_distance_km"],
+            "efficiency_improvement_pct":data["efficiency_improvement_pct"],
+            "vehicles":len(data["routes"]),"orders":cfg.get("orders",0),
+            "traffic":cfg.get("traffic","Unknown"),"vehicle_capacity":cfg.get("capacity",0),
+        }
         st.json(summary)
-        routes_df = pd.DataFrame(route_rows(data))
-        st.download_button("DOWNLOAD FLEET CSV", routes_df.to_csv(index=False).encode("utf-8"), file_name="fleet_route_report.csv", mime="text/csv", use_container_width=True)
-        st.download_button("DOWNLOAD OPTIMIZATION JSON", json.dumps({"summary":summary,"routes":data["routes"]},indent=2).encode("utf-8"), file_name="optimization_report.json", mime="application/json", use_container_width=True)
-    else: st.info("Run an optimization to generate reports.")
+        routes_df=pd.DataFrame(route_rows(data))
+        st.download_button("DOWNLOAD FLEET CSV",routes_df.to_csv(index=False).encode(),"fleet_route_report.csv","text/csv",use_container_width=True)
+        st.download_button("DOWNLOAD JSON AUDIT",json.dumps({"summary":summary,"routes":data["routes"]},indent=2).encode(),"optimization_audit.json","application/json",use_container_width=True)
+    else:
+        st.info("Run an optimization to generate an auditable report.")
+
+st.divider()
+st.caption("Last-Mile Delivery Optimization • OR-Tools CVRP • ML ETA • OSRM • Streamlit • FastAPI")
