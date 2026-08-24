@@ -1,91 +1,130 @@
 # 🚚 Last-Mile Delivery Optimization
 
-### ML-Powered ETA Prediction + Fleet Routing Decision Support
+### ML-Powered Fleet Intelligence & Route Decision Support
 
-A logistics optimization platform combining **Machine Learning, Operations Research, geospatial routing, and interactive analytics** to improve multi-vehicle last-mile delivery planning.
+A production-style logistics platform combining **Machine Learning, Operations Research, geospatial routing, and interactive analytics** for multi-vehicle last-mile delivery planning.
 
-## ✨ Features
+## ⭐ What it does
 
-- **Capacitated Vehicle Routing (CVRP)** with OR-Tools
+**Plan → Optimize → Predict → Simulate → Measure → Export**
+
+- Capacitated Vehicle Routing (CVRP) with OR-Tools
 - Vehicle capacity and delivery-demand constraints
-- Nearest-neighbor baseline vs optimized route comparison
-- Configurable traffic scenarios
-- Road-network geometry using OSRM
-- ML ETA prediction with analytical fallback
-- Fleet utilization and vehicle-level analytics
-- Scenario presets for small fleet, busy day, and high traffic
-- Interactive Folium route maps
+- Nearest-neighbor baseline vs optimized routing
+- Scenario-based traffic modelling
+- OSRM road-network visualization with caching
+- XGBoost/Random Forest/Linear Regression ETA benchmarking
+- Chronological ML validation to reduce temporal leakage
+- Local ML + local OR-Tools fallback for resilient Streamlit deployment
+- Optional FastAPI/Vercel production backend
+- Fleet utilization, fuel and CO₂ scenario estimates
 - Dynamic order simulation
-- CSV and JSON report export
-- FastAPI backend with Pydantic validation
-- Streamlit Cloud deployment support
-- Python 3.13 runtime pin for compatible dependency wheels
+- What-if scenario lab
+- CSV and JSON audit reports
+- Premium black/red operations-console UI
+- Python 3.13 runtime for compatible scientific wheels
 
 ## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    UI[Streamlit Dashboard] --> API[FastAPI Backend]
-    API --> CVRP[OR-Tools CVRP]
-    CVRP --> DIST[Haversine Distance Matrix]
-    API --> ETA[ETA ML Model]
+    UI[Streamlit Operations Console] --> LOCAL[Local Resilient Engine]
+    UI -. optional .-> API[FastAPI Production API]
+    LOCAL --> CVRP[OR-Tools CVRP]
+    LOCAL --> ETA[Local ETA Model]
+    API --> CVRP
+    API --> ETA
     UI --> OSRM[OSRM Road Geometry]
     DATA[NYC Taxi Data] --> TRAIN[Time-aware Training]
     TRAIN --> ETA
 ```
 
-## 🤖 ETA Prediction
+### Deployment resilience
 
-The training pipeline compares:
+The dashboard **does not require `API_URL` to open or operate**. If a FastAPI URL is configured and healthy it is preferred; otherwise Streamlit automatically uses the local OR-Tools and local trained ETA model. This prevents the dashboard from becoming unusable because of a missing backend secret.
+
+## 🤖 ETA Intelligence
+
+Three models are benchmarked:
 
 - Linear Regression
-- Random Forest Regressor
-- XGBoost Regressor
+- Random Forest
+- XGBoost
 
-Features include distance, hour, day-of-week, weekend status and speed. Chronological validation is used when timestamps are available, reducing temporal leakage.
+Current stored benchmark selects **XGBoost** with RMSE 2.98 minutes and R² 0.888. citeturn68file0
 
-The API returns whether the prediction came from the trained model or the analytical fallback.
+Features:
 
-## 🧭 Route Optimization
+`haversine_km`, `hour_of_day`, `day_of_week`, `is_weekend`, `speed_mph`
 
-The routing engine supports:
+The API/dashboard identifies whether an ETA came from the trained model or analytical fallback.
+
+## 🧭 Routing Engine
+
+The CVRP engine supports:
 
 - Multiple vehicles
-- Per-vehicle capacities
-- Delivery demands
+- Per-vehicle capacity
+- Delivery demand
 - Depot start/end
-- Configurable traffic factor
+- Traffic multiplier
 - Feasibility validation
-- Time-limited guided local search
+- Guided local search
 - Baseline comparison
 
-The system reports a **feasible optimized solution**, not a guaranteed global optimum.
+The result is a **feasible optimized solution**, not a mathematically guaranteed global optimum. citeturn63file0
 
-## 📊 Dashboard
+## 📊 Operations Console
 
-### Route Optimizer
-Configure fleet size, capacity, traffic and delivery demand, then optimize the fleet and visualize each route on a road map.
+### Route Control
+
+Configure vehicles, capacity, traffic and orders. Optimize the fleet and visualize road geometry on a dark map.
 
 ### Fleet Analytics
-View:
+
+Monitor:
 
 - Optimized distance
 - Distance saved
 - Efficiency improvement
 - Fleet utilization
 - Vehicle-level distance/load
-- Baseline vs OR-Tools comparison
+- Estimated fuel consumption
+- Estimated fuel cost
+- Scenario CO₂ emissions
 
-### ETA Predictor
-Estimate delivery duration for a trip using distance, speed, time of day and weekday.
+### ETA Intelligence
+
+Predict delivery time using the trained model, with a resilient local fallback.
+
+### Scenario Lab
+
+Test:
+
+- Normal operations
+- Peak traffic
+- High demand
+- Resilient fleet sizing
 
 ### Reports
+
 Download:
 
-- Fleet CSV report
-- Complete optimization JSON
+- Fleet CSV
+- JSON optimization audit
 
-## 🚀 Run Locally
+## 🔌 FastAPI
+
+```text
+GET  /
+GET  /health
+POST /optimize-route
+POST /predict
+```
+
+The API includes CORS, strict Pydantic validation, health diagnostics and model-load reporting.
+
+## 🚀 Run locally
 
 ```bash
 python -m venv .venv
@@ -97,33 +136,24 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q
 
-python model/train.py --subset 100000
-uvicorn api.main:app --reload --port 8000
-```
-
-In another terminal:
-
-```bash
 streamlit run dashboard/app.py
 ```
 
-For the deployed Streamlit dashboard, configure `API_URL` in Streamlit Secrets to point to the deployed FastAPI service.
+Optional API:
 
-## 🔌 API
-
-```text
-GET  /health
-POST /optimize-route
-POST /predict
+```bash
+uvicorn api.main:app --reload --port 8000
 ```
+
+If deployed separately, configure `API_URL` in Streamlit Secrets. This is **optional** because the dashboard has a local engine fallback.
 
 ## 📁 Project Structure
 
 ```text
-api/                 # FastAPI backend
- dashboard/          # Streamlit dashboard
-model/               # ETA training + route optimization
-data/                # preprocessing/statistics
+api/                 # FastAPI production API
+dashboard/           # Streamlit operations console
+model/               # ETA training + CVRP optimizer
+data/                # processed statistics/notebook data
 notebooks/           # EDA
  tests/              # API + optimizer tests
 requirements.txt
@@ -132,29 +162,33 @@ vercel.json
 README.md
 ```
 
-## 📦 Dataset
+## ⚙️ Engineering Quality
 
-NYC Yellow Taxi data is used for realistic geographic and temporal features. Large raw datasets are intentionally not committed.
+- Python 3.13 runtime pin
+- Dependency versions pinned
+- Cached external road-routing requests
+- Request timeouts and graceful fallbacks
+- Strict coordinate/capacity/demand validation
+- API health diagnostics
+- Streamlit session-state-safe inputs
+- No GitHub Actions dependency
+- Auditable CSV/JSON outputs
 
-## ⚠️ Current Limitations
+## ⚠️ Honest limitations
 
-- Traffic is scenario-based rather than live traffic.
-- Optimization currently uses CVRP rather than full time-window routing.
-- Multi-depot routing and dynamic re-routing are not yet implemented.
-- Production observability and model monitoring are not yet implemented.
+This project intentionally distinguishes implemented features from future enterprise capabilities. Traffic is currently scenario-based rather than live, and the core optimization model is CVRP rather than full VRPTW/multi-depot optimization.
 
-## 🗺️ Roadmap
+## 🗺️ Next engineering upgrades
 
-- [ ] Vehicle Routing Problem with Time Windows (VRPTW)
-- [ ] Multi-depot optimization
-- [ ] Live traffic integration
-- [ ] Dynamic re-routing simulation
-- [ ] Driver/vehicle assignment
-- [ ] Fuel-cost and CO₂ estimation
-- [ ] SLA / late-delivery prediction
-- [ ] Historical route-performance store
-- [ ] What-if scenario comparison
-- [ ] API monitoring and model versioning
+- VRPTW with delivery time windows
+- Multi-depot optimization
+- Live traffic provider integration
+- Continuous dynamic re-routing
+- Driver/vehicle assignment
+- SLA / late-delivery prediction
+- Historical route-performance database
+- Model monitoring and versioning
+- Production observability
 
 ## 👨‍💻 Author
 
