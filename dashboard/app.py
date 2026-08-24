@@ -278,16 +278,95 @@ with route_tab:
         if data and data.get("routes"):
             st.subheader("Live Fleet Map")
             loc = st.session_state["depot_coords"]
-            m = folium.Map(location=loc, zoom_start=13, tiles="CartoDB dark_matter")
-            folium.Marker(loc, popup="DEPOT", icon=folium.Icon(color="red", icon="home", prefix="fa")).add_to(m)
-            coords = [[[s["lat"],s["lon"]] for s in r["stops"]] for r in data["routes"]]
+
+            # ── Base map (no default tiles) ──────────────────────────────────
+            m = folium.Map(
+                location=loc,
+                zoom_start=13,
+                tiles=None,
+                control_scale=True,
+                prefer_canvas=True,
+            )
+
+            folium.TileLayer(
+                tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                attr="© OpenStreetMap contributors",
+                name="Street Map",
+            ).add_to(m)
+            folium.TileLayer(
+                tiles="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+                attr="© OpenStreetMap © CARTO",
+                name="Dark Map",
+            ).add_to(m)
+            folium.TileLayer(
+                tiles="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                attr="© OpenStreetMap © CARTO",
+                name="Light Map",
+            ).add_to(m)
+
+            # ── Depot marker ─────────────────────────────────────────────────
+            folium.Marker(
+                loc,
+                popup="DEPOT",
+                tooltip="Main Depot",
+                icon=folium.Icon(color="red", icon="home", prefix="fa"),
+            ).add_to(m)
+
+            # ── Per-vehicle feature groups ────────────────────────────────────
+            coords = [[[s["lat"], s["lon"]] for s in r["stops"]] for r in data["routes"]]
             road = get_osrm_routes(tuple(tuple(tuple(p) for p in r) for r in coords))
-            for i,r in enumerate(data["routes"]):
-                folium.PolyLine(road[i], color="#e3262e", weight=5, opacity=.9, tooltip=f"Vehicle {i+1}").add_to(m)
+
+            all_points = [loc]
+            for i, r in enumerate(data["routes"]):
+                vehicle_layer = folium.FeatureGroup(name=f"🚚 Vehicle {i + 1}")
+
+                # Real-road polyline
+                folium.PolyLine(
+                    road[i],
+                    color="#e3262e",
+                    weight=6,
+                    opacity=0.95,
+                    tooltip=f"Vehicle {i + 1} | {r['distance_km']:.2f} km",
+                ).add_to(vehicle_layer)
+
+                # Delivery stop markers (numbered)
+                seq = 0
                 for stop in r["stops"]:
-                    if stop["node"]:
-                        folium.Marker([stop["lat"],stop["lon"]], popup=stop["label"], icon=folium.Icon(color="red",icon="shopping-cart",prefix="fa")).add_to(m)
-            st_folium(m, width=900, height=590)
+                    if stop["node"] != 0:
+                        seq += 1
+                        pt = [stop["lat"], stop["lon"]]
+                        all_points.append(pt)
+                        folium.Marker(
+                            pt,
+                            popup=(
+                                f"<b>{stop['label']}</b><br>"
+                                f"Vehicle: {i + 1}<br>"
+                                f"Stop: {seq}"
+                            ),
+                            tooltip=f"#{seq} {stop['label']}",
+                            icon=folium.Icon(
+                                color="red",
+                                icon="shopping-cart",
+                                prefix="fa",
+                            ),
+                        ).add_to(vehicle_layer)
+
+                vehicle_layer.add_to(m)
+
+            # ── Layer switcher ────────────────────────────────────────────────
+            folium.LayerControl(collapsed=False).add_to(m)
+
+            # ── Fit map to all stops ──────────────────────────────────────────
+            if len(all_points) > 1:
+                lats = [p[0] for p in all_points]
+                lons = [p[1] for p in all_points]
+                pad = 0.005
+                m.fit_bounds(
+                    [[min(lats) - pad, min(lons) - pad],
+                     [max(lats) + pad, max(lons) + pad]]
+                )
+
+            st_folium(m, width=900, height=600)
         else:
             st.info("Set your fleet and orders, then run optimization.")
 
